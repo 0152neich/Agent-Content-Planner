@@ -1,0 +1,37 @@
+# Git
+.git
+.gitignore
+
+# Virtual environments
+.venv
+venv
+env
+
+# Environment variables
+.env
+.env.*
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Tests
+tests/
+.pytest_cache
+.coverage
+htmlcov/
+
+# IDEs
+.vscode
+.idea
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Other
+README.md
+Makefile
