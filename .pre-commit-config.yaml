@@ -6,7 +6,7 @@ repos:
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: debug-statements
-    -   id: double-quote-string-fixer
+
     -   id: name-tests-test
         args: [--pytest-test-first]
     -   id: requirements-txt-fixer
@@ -22,5 +22,5 @@ repos:
     rev: v1.13.0
     hooks:
     -   id: mypy
-        additional_dependencies: [types-pyyaml]
+        additional_dependencies: [types-pyyaml, types-requests]
         exclude: ^test/resources/|^migration/
