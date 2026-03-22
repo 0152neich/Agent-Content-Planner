@@ -14,11 +14,28 @@ class FirecrawlScraperOutput(BaseModel):
     text: str
 
 
+def _normalize_scraper_input(
+    raw: FirecrawlScraperInput,
+) -> FirecrawlScraperInput:
+    """CrewAI passes tool args as dict (e.g. {'input': {'url': '...'}}). Normalize to our model."""
+    if isinstance(raw, FirecrawlScraperInput):
+        return raw
+    payload = raw.get("input", raw) if isinstance(raw, dict) else raw
+    return FirecrawlScraperInput(
+        **(payload if isinstance(payload, dict) else {"url": str(payload)})
+    )
+
+
 class FirecrawlScraperTool(BaseTool):
+    name: str = "firecrawl_scraper"
+    description: str = (
+        "Scrapes a URL and returns its content as markdown using Firecrawl."
+    )
     settings: Settings
 
     def _run(self, input: FirecrawlScraperInput) -> FirecrawlScraperOutput:
         try:
+            input = _normalize_scraper_input(input)
             logger.info(f"Scraping data from: {input.url}")
             if not self.settings.firecrawl.api_key:
                 logger.error("FIRECRAWL_API_KEY is not configured in the .env file")

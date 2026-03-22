@@ -1,7 +1,9 @@
 from crewai import Agent
 
+from infra.tools.tools import get_crewai_llm
 
-def create_editor_agent() -> Agent:
+
+def create_editor_agent(model_override: str | None = None) -> Agent:
     return Agent(
         role="Tổng biên tập (Strict QA Editor)",
         goal=(
@@ -21,8 +23,9 @@ def create_editor_agent() -> Agent:
             "Thay vì trả bài lại (gây tốn thêm vòng lặp), bạn thích tự sửa trực tiếp và giao ngay "
             "bản hoàn chỉnh cho khách hàng."
         ),
+        llm=get_crewai_llm(model_override=model_override),
         tools=[],
-        # Đặt allow_delegation=False vì pipeline dùng Process.sequential.
+        # allow_delegation=False vì pipeline dùng Process.sequential.
         # Editor sẽ tự sửa inline thay vì delegate (ổn định hơn).
         allow_delegation=False,
         verbose=True,

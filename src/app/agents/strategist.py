@@ -1,7 +1,9 @@
 from crewai import Agent
 
+from infra.tools.tools import get_crewai_llm
 
-def create_strategist_agent() -> Agent:
+
+def create_strategist_agent(model_override: str | None = None) -> Agent:
     return Agent(
         role="Giám đốc Chiến lược Truyền thông",
         goal=(
@@ -17,6 +19,7 @@ def create_strategist_agent() -> Agent:
             "Bạn luôn đưa ra chiến lược rõ ràng, có tính ứng dụng cao, phù hợp xu hướng thị trường, "
             "và đủ cụ thể để Copywriter có thể thực thi ngay mà không cần hỏi thêm."
         ),
+        llm=get_crewai_llm(model_override=model_override),
         tools=[],
         allow_delegation=False,
         verbose=True,

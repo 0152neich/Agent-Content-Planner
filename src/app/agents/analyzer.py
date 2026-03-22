@@ -1,9 +1,10 @@
 from crewai import Agent
 
+from infra.tools.tools import get_crewai_llm
 from infra.tools.tools import get_scraper_tool
 
 
-def create_analyzer_agent() -> Agent:
+def create_analyzer_agent(model_override: str | None = None) -> Agent:
     return Agent(
         role="Chuyên viên Phân tích Dữ liệu",
         goal=(
@@ -18,6 +19,7 @@ def create_analyzer_agent() -> Agent:
             "cùng đối tượng mục tiêu của bất kỳ bài viết nào. "
             "Kết quả phân tích của bạn luôn rõ ràng, có cấu trúc và đáng tin cậy."
         ),
+        llm=get_crewai_llm(model_override=model_override),
         tools=[get_scraper_tool()],
         allow_delegation=False,
         verbose=True,

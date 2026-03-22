@@ -16,9 +16,20 @@ class BS4ScraperOutput(BaseModel):
     text: str
 
 
+def _normalize_bs4_input(raw: BS4ScraperInput) -> BS4ScraperInput:
+    """CrewAI passes tool args as dict (e.g. {'input': {'url': '...'}}). Normalize to our model."""
+    if isinstance(raw, BS4ScraperInput):
+        return raw
+    payload = raw.get("input", raw) if isinstance(raw, dict) else raw
+    return BS4ScraperInput(
+        **(payload if isinstance(payload, dict) else {"url": str(payload)})
+    )
+
+
 class BS4ScraperTool(BaseTool):
     def _run(self, input: BS4ScraperInput) -> BS4ScraperOutput:
         try:
+            input = _normalize_bs4_input(input)
             logger.info(f"Scraping data from: {input.url}")
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"

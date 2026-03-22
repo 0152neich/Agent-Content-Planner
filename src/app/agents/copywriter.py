@@ -1,7 +1,9 @@
 from crewai import Agent
 
+from infra.tools.tools import get_crewai_llm
 
-def create_copywriter_agent() -> Agent:
+
+def create_copywriter_agent(model_override: str | None = None) -> Agent:
     return Agent(
         role="Chuyên gia Viết bài (Senior Copywriter)",
         goal=(
@@ -16,6 +18,7 @@ def create_copywriter_agent() -> Agent:
             "Phong cách viết của bạn luôn tự nhiên, có chiều sâu và tránh hoàn toàn giọng văn "
             "máy móc hay rập khuôn của AI."
         ),
+        llm=get_crewai_llm(model_override=model_override),
         tools=[],
         allow_delegation=False,
         verbose=True,
