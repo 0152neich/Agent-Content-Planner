@@ -13,7 +13,6 @@ venv.bak/
 # Environment variables
 .env
 .env.local
-.env.*
 
 # Tests and Coverage
 .pytest_cache/
@@ -35,3 +34,12 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+
+.cursor
+.agent
+.codex
+.mypy_cache
+.ruff_cache
+src/uploads/
+
+frontend

@@ -1,0 +1,5 @@
+argon2-cffi==25.1.0
+passlib[argon2]==1.7.4
+psycopg[binary]==3.3.3
+PyJWT==2.10.1
+python-multipart==0.0.20

@@ -1,10 +1,45 @@
 from __future__ import annotations
 
 import logging
+import re
 import sys
 
 import structlog
-from structlog.typing import BoundLogger
+from structlog.stdlib import BoundLogger
+
+# Patterns that match API keys / secrets (redact entire match)
+_SECRET_PATTERNS = [
+    re.compile(r"sk-[a-zA-Z0-9_-]{20,}", re.IGNORECASE),
+    re.compile(r"AIza[a-zA-Z0-9_-]{30,}", re.IGNORECASE),
+    re.compile(r"api_key=['\"][^'\"]+['\"]", re.IGNORECASE),
+]
+
+
+def _redact_string(s: str) -> str:
+    out = s
+    for pat in _SECRET_PATTERNS:
+        out = pat.sub("***REDACTED***", out)
+    return out
+
+
+def redact_message(msg: str) -> str:
+    """Redact API keys and secrets from a string (e.g. error messages). Safe to use in logs or API responses."""
+    return _redact_string(msg)
+
+
+def _redact_event_dict(
+    logger: logging.Logger, method_name: str, event_dict: dict
+) -> dict:
+    """Structlog processor: redact secret-like values in event dict (in-place)."""
+    for key, value in list(event_dict.items()):
+        if isinstance(value, str):
+            event_dict[key] = _redact_string(value)
+    return event_dict
+
+
+def redact_secrets(logger: logging.Logger, method_name: str, event_dict: dict) -> dict:
+    """Structlog processor to prevent API keys and secrets from appearing in logs."""
+    return _redact_event_dict(logger, method_name, event_dict)
 
 
 def setup_logging(is_production: bool = False) -> None:
@@ -20,6 +55,7 @@ def setup_logging(is_production: bool = False) -> None:
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
+        redact_secrets,
     ]
 
     # Clear existing handlers to prevent duplicates
@@ -31,7 +67,7 @@ def setup_logging(is_production: bool = False) -> None:
     root_logger.setLevel(logging.INFO)
 
     console_handler = logging.StreamHandler(sys.stdout)
-    
+
     if is_production:
         formatter = structlog.stdlib.ProcessorFormatter(
             processor=structlog.processors.JSONRenderer(),
@@ -48,7 +84,8 @@ def setup_logging(is_production: bool = False) -> None:
 
     # Configure structlog
     structlog.configure(
-        processors=shared_processors + [
+        processors=shared_processors
+        + [
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
