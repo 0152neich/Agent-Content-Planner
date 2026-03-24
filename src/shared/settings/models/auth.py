@@ -17,3 +17,19 @@ class AuthSettings(BaseModel):
     refresh_cookie_path: str = Field(default="/api/v1/auth")
     refresh_cookie_samesite: str = Field(default="strict")
     refresh_cookie_secure: bool = Field(default=True)
+
+    google_enabled: bool = Field(default=False)
+    google_client_id: str = Field(default="")
+    google_client_secret: str = Field(default="")
+    google_redirect_uri: str = Field(
+        default="http://localhost:8000/api/v1/auth/google/callback"
+    )
+    google_fe_success_redirect: str = Field(
+        default="http://localhost:5173/login/google-callback"
+    )
+    google_fe_error_redirect: str = Field(default="http://localhost:5173/login")
+    google_state_ttl_seconds: int = Field(default=300, ge=60)
+    google_state_cookie_name: str = Field(default="google_oauth_state")
+    google_state_cookie_path: str = Field(default="/api/v1/auth/google")
+    google_state_cookie_samesite: str = Field(default="lax")
+    google_state_cookie_secure: bool = Field(default=True)

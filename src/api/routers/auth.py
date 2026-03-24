@@ -3,9 +3,12 @@ from __future__ import annotations
 import asyncio
 from functools import partial
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.responses import RedirectResponse
+from starlette.responses import Response
 
 from api.dependencies import get_current_user
 from api.models.auth import (
@@ -21,6 +24,8 @@ from api.models.user import UserAPIData
 from app.services import (
     AuthService,
     AuthServiceOutput,
+    GoogleAuthCallbackInput,
+    GoogleAuthService,
     LoginInput,
     LogoutInput,
     RefreshInput,
@@ -34,6 +39,7 @@ logger = get_logger(__name__)
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])
 
 _service = AuthService()
+_google_auth_service = GoogleAuthService()
 _settings = Settings()
 
 
@@ -43,7 +49,7 @@ def _json_response(payload: Any, status_code: int) -> JSONResponse:
     )
 
 
-def _set_refresh_cookie(response: JSONResponse, refresh_token: str) -> None:
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     max_age = _settings.auth.refresh_token_ttl_days * 24 * 60 * 60
     response.set_cookie(
         key=_settings.auth.refresh_cookie_name,
@@ -56,11 +62,56 @@ def _set_refresh_cookie(response: JSONResponse, refresh_token: str) -> None:
     )
 
 
-def _clear_refresh_cookie(response: JSONResponse) -> None:
+def _clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(
         key=_settings.auth.refresh_cookie_name,
         path=_settings.auth.refresh_cookie_path,
     )
+
+
+def _set_google_state_cookie(
+    response: RedirectResponse, state_cookie_value: str
+) -> None:
+    response.set_cookie(
+        key=_settings.auth.google_state_cookie_name,
+        value=state_cookie_value,
+        max_age=_settings.auth.google_state_ttl_seconds,
+        httponly=True,
+        secure=_settings.auth.google_state_cookie_secure,
+        samesite=_settings.auth.google_state_cookie_samesite,
+        path=_settings.auth.google_state_cookie_path,
+    )
+
+
+def _clear_google_state_cookie(response: RedirectResponse) -> None:
+    response.delete_cookie(
+        key=_settings.auth.google_state_cookie_name,
+        path=_settings.auth.google_state_cookie_path,
+    )
+
+
+def _append_query_param(url: str, key: str, value: str) -> str:
+    parsed = urlparse(url)
+    pairs = parse_qsl(parsed.query, keep_blank_values=True)
+    pairs.append((key, value))
+    query = urlencode(pairs)
+    return urlunparse(parsed._replace(query=query))
+
+
+def _google_error_redirect(code: str) -> RedirectResponse:
+    target = _append_query_param(_settings.auth.google_fe_error_redirect, "error", code)
+    response = RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
+    _clear_google_state_cookie(response)
+    return response
+
+
+def _google_success_redirect() -> RedirectResponse:
+    target = _append_query_param(
+        _settings.auth.google_fe_success_redirect, "status", "success"
+    )
+    response = RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
+    _clear_google_state_cookie(response)
+    return response
 
 
 def _client_ip(request: Request) -> str | None:
@@ -70,6 +121,92 @@ def _client_ip(request: Request) -> str | None:
     if request.client:
         return request.client.host
     return None
+
+
+@auth_router.get(
+    "/google/login",
+    status_code=status.HTTP_302_FOUND,
+    summary="Start Google OAuth login",
+)
+async def google_login() -> RedirectResponse:
+    start_result = _google_auth_service.build_authorization_request()
+    if not start_result.status or not isinstance(start_result.data, dict):
+        logger.warning(
+            "google_login_start_failed",
+            error=redact_message(start_result.error or "Google login init failed."),
+        )
+        return _google_error_redirect("google_login_unavailable")
+
+    authorize_url = str(start_result.data.get("authorize_url", "")).strip()
+    state_cookie_value = str(start_result.data.get("state_cookie_value", "")).strip()
+    if not authorize_url or not state_cookie_value:
+        return _google_error_redirect("google_login_unavailable")
+
+    response = RedirectResponse(url=authorize_url, status_code=status.HTTP_302_FOUND)
+    _set_google_state_cookie(response, state_cookie_value)
+    return response
+
+
+@auth_router.get(
+    "/google/callback",
+    status_code=status.HTTP_302_FOUND,
+    summary="Google OAuth callback",
+)
+async def google_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+) -> RedirectResponse:
+    if error:
+        logger.warning("google_callback_error", error=error)
+        return _google_error_redirect("google_oauth_denied")
+
+    if not code or not state:
+        return _google_error_redirect("google_invalid_request")
+
+    state_cookie_value = request.cookies.get(_settings.auth.google_state_cookie_name)
+    if not state_cookie_value:
+        return _google_error_redirect("google_invalid_state")
+
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                _google_auth_service.authenticate_with_google,
+                GoogleAuthCallbackInput(
+                    code=code,
+                    state=state,
+                    state_cookie_value=state_cookie_value,
+                    ip=_client_ip(request),
+                    user_agent=request.headers.get("user-agent"),
+                ),
+            ),
+        )
+    except asyncio.CancelledError:
+        logger.warning("Google callback request was cancelled by the client.")
+        raise
+    except Exception as exc:
+        logger.exception("Unhandled exception while google callback.", error=str(exc))
+        return _google_error_redirect("google_callback_failed")
+
+    if not result.status:
+        if result.code == status.HTTP_423_LOCKED:
+            return _google_error_redirect("inactive_user")
+        if result.code == status.HTTP_409_CONFLICT:
+            return _google_error_redirect("google_account_conflict")
+        if result.code == status.HTTP_401_UNAUTHORIZED:
+            return _google_error_redirect("google_auth_invalid")
+        return _google_error_redirect("google_callback_failed")
+
+    refresh_token = str((result.data or {}).get("refresh_token", "")).strip()
+    if not refresh_token:
+        return _google_error_redirect("google_callback_failed")
+
+    response = _google_success_redirect()
+    _set_refresh_cookie(response, refresh_token)
+    return response
 
 
 @auth_router.post(

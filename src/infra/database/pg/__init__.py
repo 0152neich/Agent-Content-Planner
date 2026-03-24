@@ -10,6 +10,7 @@ from .repositories import (
     ProjectRepository,
     RefreshTokenRepository,
     UserRepository,
+    UserIdentityRepository,
 )
 from .schemas import (
     Conversation,
@@ -18,6 +19,7 @@ from .schemas import (
     Project,
     RefreshToken,
     User,
+    UserIdentity,
 )
 
 __all__ = [
@@ -28,10 +30,12 @@ __all__ = [
     "ConversationRunRepository",
     "RefreshTokenRepository",
     "UserRepository",
+    "UserIdentityRepository",
     "Project",
     "Conversation",
     "ConversationMessage",
     "ConversationRun",
     "RefreshToken",
     "User",
+    "UserIdentity",
 ]

@@ -4,6 +4,7 @@ from .conversation_run_repository import ConversationRunRepository
 from .project_repository import ProjectRepository
 from .refresh_token_repository import RefreshTokenRepository
 from .user_repository import UserRepository
+from .user_identity_repository import UserIdentityRepository
 
 __all__ = [
     "ProjectRepository",
@@ -12,4 +13,5 @@ __all__ = [
     "ConversationRunRepository",
     "RefreshTokenRepository",
     "UserRepository",
+    "UserIdentityRepository",
 ]

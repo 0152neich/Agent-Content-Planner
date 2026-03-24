@@ -54,7 +54,6 @@ def setup_logging(is_production: bool = False) -> None:
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
         redact_secrets,
     ]
 

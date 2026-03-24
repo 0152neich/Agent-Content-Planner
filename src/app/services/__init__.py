@@ -21,6 +21,11 @@ from .conversation_service import (
     ListProjectHistoryInput,
     UpdateConversationInput,
 )
+from .google_auth_service import (
+    GoogleAuthCallbackInput,
+    GoogleAuthService,
+    GoogleAuthStartOutput,
+)
 from .project_service import (
     CreateProjectInput,
     DeleteProjectInput,
@@ -44,6 +49,8 @@ __all__ = [
     "AuthServiceOutput",
     "ConversationService",
     "ConversationServiceOutput",
+    "GoogleAuthService",
+    "GoogleAuthStartOutput",
     "ProjectService",
     "ProjectServiceOutput",
     "CreateUserInput",
@@ -61,6 +68,7 @@ __all__ = [
     "ListProjectConversationsInput",
     "ListConversationMessagesInput",
     "ListProjectHistoryInput",
+    "GoogleAuthCallbackInput",
     "LoginInput",
     "LogoutInput",
     "RefreshInput",
