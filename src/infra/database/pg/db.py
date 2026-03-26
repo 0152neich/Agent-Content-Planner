@@ -21,10 +21,12 @@ from .conversation_run import ConversationRunRepositoryImpl
 from .project import ProjectRepositoryImpl
 from .refresh_token import RefreshTokenRepositoryImpl
 from .user import UserRepositoryImpl
+from .user_identity import UserIdentityRepositoryImpl
 
 
 class SQLDatabase(
     UserRepositoryImpl,
+    UserIdentityRepositoryImpl,
     RefreshTokenRepositoryImpl,
     ProjectRepositoryImpl,
     ConversationRepositoryImpl,

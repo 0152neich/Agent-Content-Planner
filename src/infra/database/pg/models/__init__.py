@@ -11,6 +11,7 @@ from .conversation_run import ConversationRun
 from .project import Project
 from .refresh_token import RefreshToken
 from .user import User
+from .user_identity import UserIdentity
 
 __all__ = [
     "Base",
@@ -22,4 +23,5 @@ __all__ = [
     "ConversationRun",
     "RefreshToken",
     "User",
+    "UserIdentity",
 ]

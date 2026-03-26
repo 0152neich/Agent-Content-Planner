@@ -43,6 +43,15 @@ class User(DatabaseSchema):
     role: str = Field(default="user", max_length=32)
 
 
+class UserIdentity(DatabaseSchema):
+    user_id: str = Field(..., min_length=1, max_length=64)
+    provider: str = Field(..., min_length=1, max_length=32)
+    provider_sub: str = Field(..., min_length=1, max_length=255)
+    email: str | None = Field(None, min_length=1, max_length=255)
+    email_verified: bool = False
+    picture_url: str | None = Field(None, max_length=512)
+
+
 class RefreshToken(DatabaseSchema):
     user_id: str = Field(..., min_length=1, max_length=64)
     token_hash: str = Field(..., min_length=1, max_length=128)

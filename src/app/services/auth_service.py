@@ -187,6 +187,43 @@ class AuthService(BaseModel):
                     token_row.revoked_at = now
                     self._db.update_refresh_token(session=session, model=token_row)
 
+    def issue_tokens_for_user(
+        self, *, user: User, ip: str | None = None, user_agent: str | None = None
+    ) -> AuthServiceOutput:
+        try:
+            if not user.is_active:
+                return AuthServiceOutput(
+                    status=False,
+                    data=None,
+                    error="User account is inactive.",
+                    code=423,
+                )
+
+            access_payload = self._build_access_payload(user)
+            refresh_token, refresh_model = self._create_refresh_token(
+                user_id=str(user.id),
+                ip=ip,
+                user_agent=user_agent,
+            )
+
+            with self._db.get_session() as session:
+                self._db.insert_refresh_token(session=session, model=refresh_model)
+
+            return AuthServiceOutput(
+                status=True,
+                data={**access_payload, "refresh_token": refresh_token},
+                error=None,
+                code=200,
+            )
+        except Exception as exc:
+            logger.exception("issue_tokens_failed_unexpected", error=str(exc))
+            return AuthServiceOutput(
+                status=False,
+                data=None,
+                error=f"Unexpected error while issuing tokens: {redact_message(str(exc))}",
+                code=500,
+            )
+
     def login(self, inputs: LoginInput) -> AuthServiceOutput:
         try:
             user = self._find_user_by_identifier(inputs.identifier)
@@ -220,23 +257,16 @@ class AuthService(BaseModel):
                     code=401,
                 )
 
-            access_payload = self._build_access_payload(user)
-            refresh_token, refresh_model = self._create_refresh_token(
-                user_id=str(user.id),
+            token_result = self.issue_tokens_for_user(
+                user=user,
                 ip=inputs.ip,
                 user_agent=inputs.user_agent,
             )
-
-            with self._db.get_session() as session:
-                self._db.insert_refresh_token(session=session, model=refresh_model)
+            if not token_result.status:
+                return token_result
 
             logger.info("login_success", user_id=user.id)
-            return AuthServiceOutput(
-                status=True,
-                data={**access_payload, "refresh_token": refresh_token},
-                error=None,
-                code=200,
-            )
+            return token_result
         except Exception as exc:
             logger.exception("login_failed_unexpected", error=str(exc))
             return AuthServiceOutput(

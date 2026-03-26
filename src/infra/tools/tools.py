@@ -77,15 +77,34 @@ def resolve_llm_target(model_override: str | None = None) -> tuple[str, str]:
             )
         return selected_provider, requested_model
 
-    provider = settings.llm_provider.lower()
-    if provider == "openai":
-        return provider, settings.openai.model
-    if provider == "anthropic":
-        return provider, settings.anthropic.model
-    if provider == "gemini":
-        return provider, settings.gemini.model
-    raise ValueError(
-        f"Invalid LLM_PROVIDER value: '{provider}'. Must be 'openai' or 'anthropic' or 'gemini'."
+    selected_provider = settings.llm_provider.strip().lower()
+    if selected_provider == "openai":
+        selected_model = settings.openai.model
+        _validate_model_against_allowlist(
+            selected_model=selected_model,
+            allowed_models=settings.openai.allowed_models_list,
+            provider=selected_provider,
+        )
+        return selected_provider, selected_model
+    if selected_provider == "anthropic":
+        selected_model = settings.anthropic.model
+        _validate_model_against_allowlist(
+            selected_model=selected_model,
+            allowed_models=settings.anthropic.allowed_models_list,
+            provider=selected_provider,
+        )
+        return selected_provider, selected_model
+    if selected_provider == "gemini":
+        selected_model = settings.gemini.model
+        _validate_model_against_allowlist(
+            selected_model=selected_model,
+            allowed_models=settings.gemini.allowed_models_list,
+            provider=selected_provider,
+        )
+        return selected_provider, selected_model
+    raise UnsupportedModelError(
+        f"Unsupported LLM provider '{selected_provider}'. "
+        "Supported providers: openai, anthropic, gemini."
     )
 
 
