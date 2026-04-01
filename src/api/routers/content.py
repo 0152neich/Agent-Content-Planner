@@ -10,18 +10,24 @@ from fastapi.responses import JSONResponse
 from api.dependencies import get_current_user
 from api.models.content import ContentPlanAPIInput
 from api.models.content import ContentPlanAPIData, ContentPlanAPIOutput
-from app.services import AuthServiceOutput
+from app.services import (
+    AuthServiceOutput,
+    ConversationService,
+    PersistContentPlanSnapshotInput,
+)
 from app.workflows.content_pipeline import ContentPlanningInput, ContentPlanningService
 from domain.models.models import ContentPlanOutput
 from infra.database.pg.schemas import User
 from shared.logging import get_logger
 from shared.logging import redact_message
+from shared.thread_pools import get_crew_executor
 
 logger = get_logger(__name__)
 
 content_plan_router = APIRouter(prefix="/content-plan", tags=["Content Planning"])
 
 _service = ContentPlanningService()
+_conversation_service = ConversationService()
 
 
 def _json_response(payload: Any, status_code: int) -> JSONResponse:
@@ -65,15 +71,16 @@ async def create_content_plan(
     )
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
-            None,
+            get_crew_executor(),
             partial(
                 _service.process,
                 ContentPlanningInput(
                     url=str(input.url),
                     additional_context=input.additional_context,
                     selected_model=input.selected_model,
+                    requester_user_id=current_user_result.data.id,
                 ),
             ),
         )
@@ -102,6 +109,33 @@ async def create_content_plan(
             ),
             result.code,
         )
+
+    if input.project_id and input.conversation_id:
+        persist_result = await loop.run_in_executor(
+            None,
+            partial(
+                _conversation_service.persist_content_plan_snapshot,
+                PersistContentPlanSnapshotInput(
+                    owner_user_id=current_user_result.data.id or "",
+                    project_id=input.project_id,
+                    conversation_id=input.conversation_id,
+                    source_url=str(input.url),
+                    selected_model=input.selected_model,
+                    additional_context=input.additional_context,
+                    content_plan_snapshot=result.data.model_dump(mode="json"),
+                ),
+            ),
+        )
+        if not persist_result.status:
+            return _json_response(
+                ContentPlanAPIOutput(
+                    success=False,
+                    data=None,
+                    error=persist_result.error
+                    or "Generated content but failed to persist snapshot.",
+                ),
+                persist_result.code,
+            )
 
     return _json_response(
         ContentPlanAPIOutput(

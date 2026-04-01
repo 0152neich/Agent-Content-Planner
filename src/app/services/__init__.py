@@ -19,8 +19,13 @@ from .conversation_service import (
     ListConversationMessagesInput,
     ListProjectConversationsInput,
     ListProjectHistoryInput,
+    PersistContentPlanSnapshotInput,
+    SaveRunSnapshotInput,
     UpdateConversationInput,
 )
+from .chat_contracts import ChatAction, ChatIntent, ChatRefinementInput, ChatRefinementOutput
+from .chat_intent_router import ChatIntentRouter
+from .chat_refinement_service import ChatRefinementService
 from .google_auth_service import (
     GoogleAuthCallbackInput,
     GoogleAuthService,
@@ -34,6 +39,13 @@ from .project_service import (
     ProjectService,
     ProjectServiceOutput,
     UpdateProjectInput,
+)
+from .password_reset_service import (
+    PasswordResetService,
+    PasswordResetServiceOutput,
+    ResetPasswordInput,
+    SendPasswordResetOtpInput,
+    VerifyPasswordResetOtpInput,
 )
 from .user_service import (
     CreateUserInput,
@@ -49,6 +61,12 @@ __all__ = [
     "AuthServiceOutput",
     "ConversationService",
     "ConversationServiceOutput",
+    "ChatAction",
+    "ChatIntent",
+    "ChatIntentRouter",
+    "ChatRefinementInput",
+    "ChatRefinementOutput",
+    "ChatRefinementService",
     "GoogleAuthService",
     "GoogleAuthStartOutput",
     "ProjectService",
@@ -68,14 +86,21 @@ __all__ = [
     "ListProjectConversationsInput",
     "ListConversationMessagesInput",
     "ListProjectHistoryInput",
+    "PersistContentPlanSnapshotInput",
+    "SaveRunSnapshotInput",
     "GoogleAuthCallbackInput",
     "LoginInput",
     "LogoutInput",
+    "PasswordResetService",
+    "PasswordResetServiceOutput",
+    "ResetPasswordInput",
     "RefreshInput",
+    "SendPasswordResetOtpInput",
     "UpdateUserInput",
     "UpdateProjectInput",
     "UpdateConversationInput",
     "UserService",
     "UserServiceOutput",
     "ValidateAccessTokenInput",
+    "VerifyPasswordResetOtpInput",
 ]

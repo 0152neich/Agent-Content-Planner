@@ -1,9 +1,9 @@
 import requests
-from bs4 import BeautifulSoup
 from crewai.tools import BaseTool
 from shared.logging import get_logger
 
 from shared.base import BaseModel
+from .errors import ScraperToolError
 
 logger = get_logger(__name__)
 
@@ -30,6 +30,21 @@ class BS4ScraperTool(BaseTool):
     def _run(self, input: BS4ScraperInput) -> BS4ScraperOutput:
         try:
             input = _normalize_bs4_input(input)
+        except Exception as exc:
+            message = f"BS4 scraper received invalid input: {str(exc)}"
+            logger.error(message)
+            raise ScraperToolError(message) from exc
+
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError as exc:
+            message = (
+                "BS4 scraper dependency is missing. Install 'beautifulsoup4' package."
+            )
+            logger.error(message)
+            raise ScraperToolError(message) from exc
+
+        try:
             logger.info(f"Scraping data from: {input.url}")
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -47,8 +62,7 @@ class BS4ScraperTool(BaseTool):
             text = soup.get_text(separator="\n", strip=True)
             return BS4ScraperOutput(text=text[:15000])
 
-        except Exception as e:
-            logger.error(f"Error (BS4) when reading URL {input.url}: {str(e)}")
-            return BS4ScraperOutput(
-                text=f"Error (BS4) when reading URL {input.url}: {str(e)}"
-            )
+        except Exception as exc:
+            message = f"BS4 scraper failed for URL {input.url}: {str(exc)}"
+            logger.error(message)
+            raise ScraperToolError(message) from exc

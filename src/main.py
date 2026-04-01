@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -17,8 +19,20 @@ from api.routers import (
     user_router,
 )
 from shared.logging import setup_logging
+from shared.thread_pools import install_default_executors, shutdown_executors
 
 setup_logging(is_production=False)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    loop = asyncio.get_running_loop()
+    install_default_executors(loop)
+    try:
+        yield
+    finally:
+        shutdown_executors()
+
 
 _default_cors_origins = (
     "http://localhost:5173,"
@@ -58,6 +72,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ── CORS (adjust origins in production) ──────────────────────────────────────

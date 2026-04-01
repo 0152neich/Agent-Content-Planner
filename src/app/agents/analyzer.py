@@ -1,10 +1,19 @@
+from __future__ import annotations
+
 from crewai import Agent
 
 from infra.tools.tools import get_crewai_llm
 from infra.tools.tools import get_scraper_tool
+from shared.settings import Settings
+from shared.settings.models import CrewSettings
 
 
-def create_analyzer_agent(model_override: str | None = None) -> Agent:
+def create_analyzer_agent(
+    model_override: str | None = None,
+    *,
+    crew_settings: CrewSettings | None = None,
+) -> Agent:
+    c = crew_settings or Settings().crew
     return Agent(
         role="Chuyên viên Phân tích Dữ liệu",
         goal=(
@@ -22,5 +31,7 @@ def create_analyzer_agent(model_override: str | None = None) -> Agent:
         llm=get_crewai_llm(model_override=model_override),
         tools=[get_scraper_tool()],
         allow_delegation=False,
-        verbose=True,
+        verbose=c.verbose,
+        max_iter=c.max_iter_analyzer,
+        max_retry_limit=c.max_retry_limit,
     )

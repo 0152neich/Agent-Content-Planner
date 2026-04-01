@@ -240,10 +240,19 @@ def test_process_passes_selected_model_to_agent_factories(
         result = service.process(input_with_model)
 
     assert result.status is True
-    mocked_analyzer.assert_called_once_with(model_override=selected_model)
-    mocked_strategist.assert_called_once_with(model_override=selected_model)
-    mocked_copywriter.assert_called_once_with(model_override=selected_model)
-    mocked_editor.assert_called_once_with(model_override=selected_model)
+    assert mocked_analyzer.call_count == 1
+    assert mocked_strategist.call_count == 1
+    assert mocked_copywriter.call_count == 1
+    assert mocked_editor.call_count == 1
+
+    assert mocked_analyzer.call_args.kwargs.get("model_override") == selected_model
+    assert mocked_strategist.call_args.kwargs.get("model_override") == selected_model
+    assert mocked_copywriter.call_args.kwargs.get("model_override") == selected_model
+    assert mocked_editor.call_args.kwargs.get("model_override") == selected_model
+    assert "crew_settings" in mocked_analyzer.call_args.kwargs
+    assert "crew_settings" in mocked_strategist.call_args.kwargs
+    assert "crew_settings" in mocked_copywriter.call_args.kwargs
+    assert "crew_settings" in mocked_editor.call_args.kwargs
 
 
 def test_process_returns_failure_and_error_message_when_kickoff_raises(
@@ -289,3 +298,58 @@ def test_process_returns_400_when_selected_model_is_not_supported(
     assert result.status is False
     assert result.code == 400
     assert result.error == "Unsupported model prefix."
+
+
+def test_process_uses_short_term_cache_for_identical_success_requests(
+    service: ContentPlanningService,
+    content_planning_input: ContentPlanningInput,
+    fake_draft_analysis: DraftAnalysis,
+    fake_social_posts_bundle: SocialPostsBundle,
+) -> None:
+    """Second identical request should hit cache and avoid rebuilding Crew."""
+    captured_tasks: list = []
+    crew_patch = patch(
+        "app.workflows.content_pipeline.Crew",
+        side_effect=_make_capture_crew(
+            fake_draft_analysis, fake_social_posts_bundle, captured_tasks
+        ),
+    )
+
+    with ExitStack() as stack:
+        for p in _ALL_PATCHES:
+            stack.enter_context(p)
+        mocked_crew = stack.enter_context(crew_patch)
+        first = service.process(content_planning_input)
+        second = service.process(content_planning_input)
+
+    assert first.status is True
+    assert second.status is True
+    assert mocked_crew.call_count == 1
+
+
+def test_process_returns_429_when_rate_limit_is_exceeded(
+    service: ContentPlanningService,
+    content_planning_input: ContentPlanningInput,
+    fake_draft_analysis: DraftAnalysis,
+    fake_social_posts_bundle: SocialPostsBundle,
+) -> None:
+    """With default window, the 4th rapid request is rate-limited."""
+    captured_tasks: list = []
+    crew_patch = patch(
+        "app.workflows.content_pipeline.Crew",
+        side_effect=_make_capture_crew(
+            fake_draft_analysis, fake_social_posts_bundle, captured_tasks
+        ),
+    )
+
+    with ExitStack() as stack:
+        for p in _ALL_PATCHES:
+            stack.enter_context(p)
+        stack.enter_context(crew_patch)
+        outputs = [service.process(content_planning_input) for _ in range(4)]
+
+    assert outputs[0].status is True
+    assert outputs[1].status is True
+    assert outputs[2].status is True
+    assert outputs[3].status is False
+    assert outputs[3].code == 429

@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from pydantic import AnyHttpUrl, Field
 from pydantic import field_validator
+from pydantic import model_validator
 
 from domain.models.models import ContentPlanOutput, DraftAnalysis, Platform, SocialPost
 from shared.base import BaseModel
@@ -28,6 +29,16 @@ class ContentPlanAPIInput(BaseModel):
         description="Optional model selected from FE; provider is inferred from model prefix.",
         examples=["gpt-5.4", "claude-sonnet-4-6", "gemini-2.5-pro"],
     )
+    project_id: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="Optional project id to persist content plan snapshot into run history.",
+    )
+    conversation_id: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="Optional conversation id to persist content plan snapshot into run history.",
+    )
 
     @field_validator("selected_model")
     @classmethod
@@ -36,6 +47,22 @@ class ContentPlanAPIInput(BaseModel):
             return None
         normalized = value.strip()
         return normalized or None
+
+    @field_validator("project_id", "conversation_id")
+    @classmethod
+    def validate_optional_ids(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @model_validator(mode="after")
+    def validate_snapshot_binding(self) -> "ContentPlanAPIInput":
+        has_project = bool(self.project_id)
+        has_conversation = bool(self.conversation_id)
+        if has_project != has_conversation:
+            raise ValueError("project_id and conversation_id must be provided together.")
+        return self
 
 
 class SocialPostResponse(BaseModel):

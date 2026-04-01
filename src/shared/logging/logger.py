@@ -94,6 +94,9 @@ def setup_logging(is_production: bool = False) -> None:
 
     # Quiet overly verbose third-party loggers if necessary
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("CrewAIEventsBus").setLevel(logging.ERROR)
+    logging.getLogger("crewai").setLevel(logging.ERROR)
+    logging.getLogger("crewai.events").setLevel(logging.ERROR)
 
 
 def get_logger(name: str) -> BoundLogger:
