@@ -62,6 +62,18 @@ class RefreshToken(DatabaseSchema):
     user_agent: str | None = Field(None, max_length=512)
 
 
+class PasswordResetOTP(DatabaseSchema):
+    user_id: str = Field(..., min_length=1, max_length=64)
+    email: str = Field(..., min_length=1, max_length=255)
+    otp_hash: str = Field(..., min_length=1, max_length=128)
+    expires_at: datetime
+    consumed_at: datetime | None = None
+    reset_at: datetime | None = None
+    attempt_count: int = Field(default=0, ge=0)
+    ip: str | None = Field(None, max_length=64)
+    user_agent: str | None = Field(None, max_length=512)
+
+
 class Project(DatabaseSchema):
     owner_user_id: str = Field(..., min_length=1, max_length=64)
     name: str = Field(..., min_length=1, max_length=128)

@@ -13,6 +13,15 @@ from starlette.responses import Response
 from api.dependencies import get_current_user
 from api.models.auth import (
     AuthTokenAPIData,
+    ForgotPasswordResetAPIData,
+    ForgotPasswordResetAPIInput,
+    ForgotPasswordResetAPIOutput,
+    ForgotPasswordSendOtpAPIData,
+    ForgotPasswordSendOtpAPIInput,
+    ForgotPasswordSendOtpAPIOutput,
+    ForgotPasswordVerifyOtpAPIData,
+    ForgotPasswordVerifyOtpAPIInput,
+    ForgotPasswordVerifyOtpAPIOutput,
     LoginAPIInput,
     LoginAPIOutput,
     LogoutAPIData,
@@ -28,7 +37,11 @@ from app.services import (
     GoogleAuthService,
     LoginInput,
     LogoutInput,
+    PasswordResetService,
     RefreshInput,
+    ResetPasswordInput,
+    SendPasswordResetOtpInput,
+    VerifyPasswordResetOtpInput,
 )
 from infra.database.pg.schemas import User
 from shared.logging import get_logger, redact_message
@@ -40,6 +53,7 @@ auth_router = APIRouter(prefix="/auth", tags=["Auth"])
 
 _service = AuthService()
 _google_auth_service = GoogleAuthService()
+_password_reset_service = PasswordResetService()
 _settings = Settings()
 
 
@@ -417,4 +431,179 @@ async def me(
 
     return MeAPIOutput(
         success=True, data=UserAPIData.from_domain(current_user_result.data), error=None
+    )
+
+
+@auth_router.post(
+    "/forgot-password/send-otp",
+    response_model=ForgotPasswordSendOtpAPIOutput,
+    status_code=status.HTTP_200_OK,
+    summary="Send OTP for forgot-password flow",
+)
+async def forgot_password_send_otp(
+    input: ForgotPasswordSendOtpAPIInput,
+    request: Request,
+) -> ForgotPasswordSendOtpAPIOutput | JSONResponse:
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                _password_reset_service.send_otp,
+                SendPasswordResetOtpInput(
+                    email=input.email,
+                    ip=_client_ip(request),
+                    user_agent=request.headers.get("user-agent"),
+                ),
+            ),
+        )
+    except asyncio.CancelledError:
+        logger.warning("Forgot-password send OTP request was cancelled by the client.")
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Unhandled exception while sending forgot-password OTP.", error=str(exc)
+        )
+        return _json_response(
+            ForgotPasswordSendOtpAPIOutput(
+                success=False,
+                data=None,
+                error="Unexpected error while sending OTP.",
+            ),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    if not result.status:
+        return _json_response(
+            ForgotPasswordSendOtpAPIOutput(
+                success=False,
+                data=None,
+                error=redact_message(result.error or "Send OTP failed."),
+            ),
+            result.code,
+        )
+
+    payload = result.data if isinstance(result.data, dict) else {}
+    return ForgotPasswordSendOtpAPIOutput(
+        success=True,
+        data=ForgotPasswordSendOtpAPIData(
+            sent=bool(payload.get("sent", True)),
+            expires_in=int(payload.get("expires_in", 0)),
+            message=str(payload.get("message", "OTP sent.")),
+        ),
+        error=None,
+    )
+
+
+@auth_router.post(
+    "/forgot-password/verify-otp",
+    response_model=ForgotPasswordVerifyOtpAPIOutput,
+    status_code=status.HTTP_200_OK,
+    summary="Verify forgot-password OTP and issue reset token",
+)
+async def forgot_password_verify_otp(
+    input: ForgotPasswordVerifyOtpAPIInput,
+) -> ForgotPasswordVerifyOtpAPIOutput | JSONResponse:
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                _password_reset_service.verify_otp,
+                VerifyPasswordResetOtpInput(email=input.email, otp=input.otp),
+            ),
+        )
+    except asyncio.CancelledError:
+        logger.warning(
+            "Forgot-password verify OTP request was cancelled by the client."
+        )
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Unhandled exception while verifying forgot-password OTP.", error=str(exc)
+        )
+        return _json_response(
+            ForgotPasswordVerifyOtpAPIOutput(
+                success=False,
+                data=None,
+                error="Unexpected error while verifying OTP.",
+            ),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    if not result.status:
+        return _json_response(
+            ForgotPasswordVerifyOtpAPIOutput(
+                success=False,
+                data=None,
+                error=redact_message(result.error or "Verify OTP failed."),
+            ),
+            result.code,
+        )
+
+    payload = result.data if isinstance(result.data, dict) else {}
+    return ForgotPasswordVerifyOtpAPIOutput(
+        success=True,
+        data=ForgotPasswordVerifyOtpAPIData(
+            verified=bool(payload.get("verified", True)),
+            reset_token=str(payload.get("reset_token", "")),
+            expires_in=int(payload.get("expires_in", 0)),
+        ),
+        error=None,
+    )
+
+
+@auth_router.post(
+    "/forgot-password/reset",
+    response_model=ForgotPasswordResetAPIOutput,
+    status_code=status.HTTP_200_OK,
+    summary="Reset password using reset token from verified OTP",
+)
+async def forgot_password_reset(
+    input: ForgotPasswordResetAPIInput,
+) -> ForgotPasswordResetAPIOutput | JSONResponse:
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                _password_reset_service.reset_password,
+                ResetPasswordInput(
+                    reset_token=input.reset_token,
+                    new_password=input.new_password,
+                ),
+            ),
+        )
+    except asyncio.CancelledError:
+        logger.warning("Forgot-password reset request was cancelled by the client.")
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Unhandled exception while resetting forgot-password password.",
+            error=str(exc),
+        )
+        return _json_response(
+            ForgotPasswordResetAPIOutput(
+                success=False,
+                data=None,
+                error="Unexpected error while resetting password.",
+            ),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    if not result.status:
+        return _json_response(
+            ForgotPasswordResetAPIOutput(
+                success=False,
+                data=None,
+                error=redact_message(result.error or "Reset password failed."),
+            ),
+            result.code,
+        )
+
+    payload = result.data if isinstance(result.data, dict) else {}
+    return ForgotPasswordResetAPIOutput(
+        success=True,
+        data=ForgotPasswordResetAPIData(reset=bool(payload.get("reset", True))),
+        error=None,
     )

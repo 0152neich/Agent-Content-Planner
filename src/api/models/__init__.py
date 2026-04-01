@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from .auth import LoginAPIInput
 from .auth import LoginAPIOutput
+from .auth import ForgotPasswordResetAPIInput
+from .auth import ForgotPasswordResetAPIOutput
+from .auth import ForgotPasswordSendOtpAPIInput
+from .auth import ForgotPasswordSendOtpAPIOutput
+from .auth import ForgotPasswordVerifyOtpAPIInput
+from .auth import ForgotPasswordVerifyOtpAPIOutput
 from .auth import LogoutAPIOutput
 from .auth import MeAPIOutput
 from .auth import RefreshAPIOutput
@@ -37,6 +43,12 @@ from .user import (
 __all__ = [
     "LoginAPIInput",
     "LoginAPIOutput",
+    "ForgotPasswordSendOtpAPIInput",
+    "ForgotPasswordSendOtpAPIOutput",
+    "ForgotPasswordVerifyOtpAPIInput",
+    "ForgotPasswordVerifyOtpAPIOutput",
+    "ForgotPasswordResetAPIInput",
+    "ForgotPasswordResetAPIOutput",
     "RefreshAPIOutput",
     "LogoutAPIOutput",
     "MeAPIOutput",

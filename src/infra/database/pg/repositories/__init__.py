@@ -1,6 +1,7 @@
 from .conversation_message_repository import ConversationMessageRepository
 from .conversation_repository import ConversationRepository
 from .conversation_run_repository import ConversationRunRepository
+from .password_reset_otp_repository import PasswordResetOTPRepository
 from .project_repository import ProjectRepository
 from .refresh_token_repository import RefreshTokenRepository
 from .user_repository import UserRepository
@@ -11,6 +12,7 @@ __all__ = [
     "ConversationRepository",
     "ConversationMessageRepository",
     "ConversationRunRepository",
+    "PasswordResetOTPRepository",
     "RefreshTokenRepository",
     "UserRepository",
     "UserIdentityRepository",

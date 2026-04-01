@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from contextlib import contextmanager
-from functools import cached_property
 from collections.abc import Iterator
+from functools import cached_property
 from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine
@@ -18,8 +19,10 @@ from .models import Base
 from .conversation import ConversationRepositoryImpl
 from .conversation_message import ConversationMessageRepositoryImpl
 from .conversation_run import ConversationRunRepositoryImpl
+from .password_reset_otp import PasswordResetOTPRepositoryImpl
 from .project import ProjectRepositoryImpl
 from .refresh_token import RefreshTokenRepositoryImpl
+from .schemas import PasswordResetOTP
 from .user import UserRepositoryImpl
 from .user_identity import UserIdentityRepositoryImpl
 
@@ -32,6 +35,7 @@ class SQLDatabase(
     ConversationRepositoryImpl,
     ConversationMessageRepositoryImpl,
     ConversationRunRepositoryImpl,
+    PasswordResetOTPRepositoryImpl,
 ):
     """PostgreSQL-backed database: session factory + User repository implementation.
 
@@ -73,3 +77,41 @@ class SQLDatabase(
             raise
         finally:
             session.close()
+
+    # Re-expose OTP repository methods so static type-checkers can resolve
+    # these attributes on SQLDatabase instances without relying on MRO inference.
+    def insert_password_reset_otp(
+        self, session: Session, model: PasswordResetOTP
+    ) -> PasswordResetOTP:
+        return PasswordResetOTPRepositoryImpl.insert_password_reset_otp(
+            self, session=session, model=model
+        )
+
+    def update_password_reset_otp(
+        self, session: Session, model: PasswordResetOTP
+    ) -> PasswordResetOTP | None:
+        return PasswordResetOTPRepositoryImpl.update_password_reset_otp(
+            self, session=session, model=model
+        )
+
+    def get_password_reset_otp_by_id(
+        self, session: Session, id: str
+    ) -> PasswordResetOTP | None:
+        return PasswordResetOTPRepositoryImpl.get_password_reset_otp_by_id(
+            self, session=session, id=id
+        )
+
+    def get_password_reset_otps(
+        self,
+        session: Session,
+        filter: dict[str, object] | None = None,
+        order_by: Sequence | None = None,
+        limit: int | None = None,
+    ) -> list[PasswordResetOTP] | None:
+        return PasswordResetOTPRepositoryImpl.get_password_reset_otps(
+            self,
+            session=session,
+            filter=filter,
+            order_by=order_by,
+            limit=limit,
+        )

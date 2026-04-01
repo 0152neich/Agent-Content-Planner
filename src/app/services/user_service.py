@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from infra.database.pg import SQLDatabase
@@ -11,6 +12,21 @@ from shared.settings.models import PostgresSettings
 
 logger = get_logger(__name__)
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+
+def _normalize_user_name(value: str) -> str:
+    return value.strip()
+
+
+def _normalize_email(value: str) -> str:
+    return value.strip().lower()
+
+
+def _normalize_phone(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = re.sub(r"[\s\-\.\(\)]", "", value.strip())
+    return normalized or None
 
 
 class UserServiceOutput(BaseModel):
@@ -97,39 +113,73 @@ class UserService(BaseModel):
 
     def create_user(self, inputs: CreateUserInput) -> UserServiceOutput:
         try:
+            normalized_user_name = _normalize_user_name(inputs.user_name)
+            normalized_email = _normalize_email(inputs.email)
+            normalized_phone = _normalize_phone(inputs.phone)
+
             with self._db.get_session() as session:
                 existed_by_email = self._db.get_users(
                     session=session,
-                    filter={"email": inputs.email},
+                    filter={"email": normalized_email},
                     limit=1,
                 )
                 if existed_by_email:
                     return UserServiceOutput(
                         status=False,
                         data=None,
-                        error=f"Email '{inputs.email}' already exists.",
+                        error=f"Email '{normalized_email}' already exists.",
                         code=409,
                     )
 
                 existed_by_user_name = self._db.get_users(
                     session=session,
-                    filter={"user_name": inputs.user_name},
+                    filter={"user_name": normalized_user_name},
                     limit=1,
                 )
                 if existed_by_user_name:
                     return UserServiceOutput(
                         status=False,
                         data=None,
-                        error=f"Username '{inputs.user_name}' already exists.",
+                        error=f"Username '{normalized_user_name}' already exists.",
                         code=409,
                     )
 
+                if normalized_phone is not None:
+                    existed_by_phone = self._db.get_users(
+                        session=session,
+                        filter={"phone": normalized_phone},
+                        limit=1,
+                    )
+                    if existed_by_phone:
+                        return UserServiceOutput(
+                            status=False,
+                            data=None,
+                            error=f"Phone '{normalized_phone}' already exists.",
+                            code=409,
+                        )
+
+                if not normalized_user_name:
+                    return UserServiceOutput(
+                        status=False,
+                        data=None,
+                        error="Username must not be blank.",
+                        code=400,
+                    )
+
+                if not normalized_email:
+                    return UserServiceOutput(
+                        status=False,
+                        data=None,
+                        error="Email must not be blank.",
+                        code=400,
+                    )
+
                 model = User(
-                    user_name=inputs.user_name,
-                    email=inputs.email,
+                    user_name=normalized_user_name,
+                    email=normalized_email,
                     password_hash=pwd_context.hash(inputs.password),
                     full_name=inputs.full_name,
-                    phone=inputs.phone,
+                    phone=normalized_phone,
                     avatar_url=inputs.avatar_url,
                     is_active=inputs.is_active,
                     email_verified=inputs.email_verified,
@@ -160,16 +210,43 @@ class UserService(BaseModel):
                         code=404,
                     )
 
+                existing_user_name = _normalize_user_name(existing.user_name)
+                existing_email = _normalize_email(existing.email)
+                existing_phone = _normalize_phone(existing.phone)
+
                 next_user_name = (
-                    inputs.user_name
+                    _normalize_user_name(inputs.user_name)
                     if inputs.user_name is not None
-                    else existing.user_name
+                    else existing_user_name
                 )
                 next_email = (
-                    inputs.email if inputs.email is not None else existing.email
+                    _normalize_email(inputs.email)
+                    if inputs.email is not None
+                    else existing_email
+                )
+                next_phone = (
+                    _normalize_phone(inputs.phone)
+                    if inputs.phone is not None
+                    else existing_phone
                 )
 
-                if next_email != existing.email:
+                if not next_user_name:
+                    return UserServiceOutput(
+                        status=False,
+                        data=None,
+                        error="Username must not be blank.",
+                        code=400,
+                    )
+
+                if not next_email:
+                    return UserServiceOutput(
+                        status=False,
+                        data=None,
+                        error="Email must not be blank.",
+                        code=400,
+                    )
+
+                if next_email != existing_email:
                     existed_by_email = self._db.get_users(
                         session=session,
                         filter={"email": next_email},
@@ -183,7 +260,7 @@ class UserService(BaseModel):
                             code=409,
                         )
 
-                if next_user_name != existing.user_name:
+                if next_user_name != existing_user_name:
                     existed_by_user_name = self._db.get_users(
                         session=session,
                         filter={"user_name": next_user_name},
@@ -194,6 +271,20 @@ class UserService(BaseModel):
                             status=False,
                             data=None,
                             error=f"Username '{next_user_name}' already exists.",
+                            code=409,
+                        )
+
+                if next_phone != existing_phone and next_phone is not None:
+                    existed_by_phone = self._db.get_users(
+                        session=session,
+                        filter={"phone": next_phone},
+                        limit=1,
+                    )
+                    if existed_by_phone:
+                        return UserServiceOutput(
+                            status=False,
+                            data=None,
+                            error=f"Phone '{next_phone}' already exists.",
                             code=409,
                         )
 
@@ -209,7 +300,7 @@ class UserService(BaseModel):
                     full_name=inputs.full_name
                     if inputs.full_name is not None
                     else existing.full_name,
-                    phone=inputs.phone if inputs.phone is not None else existing.phone,
+                    phone=next_phone,
                     avatar_url=inputs.avatar_url
                     if inputs.avatar_url is not None
                     else existing.avatar_url,

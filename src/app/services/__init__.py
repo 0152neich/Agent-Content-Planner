@@ -23,7 +23,12 @@ from .conversation_service import (
     SaveRunSnapshotInput,
     UpdateConversationInput,
 )
-from .chat_contracts import ChatAction, ChatIntent, ChatRefinementInput, ChatRefinementOutput
+from .chat_contracts import (
+    ChatAction,
+    ChatIntent,
+    ChatRefinementInput,
+    ChatRefinementOutput,
+)
 from .chat_intent_router import ChatIntentRouter
 from .chat_refinement_service import ChatRefinementService
 from .google_auth_service import (

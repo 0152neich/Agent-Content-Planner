@@ -8,6 +8,7 @@ from .base import Identified
 from .conversation import Conversation
 from .conversation_message import ConversationMessage
 from .conversation_run import ConversationRun
+from .password_reset_otp import PasswordResetOTP
 from .project import Project
 from .refresh_token import RefreshToken
 from .user import User
@@ -21,6 +22,7 @@ __all__ = [
     "Conversation",
     "ConversationMessage",
     "ConversationRun",
+    "PasswordResetOTP",
     "RefreshToken",
     "User",
     "UserIdentity",

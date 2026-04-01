@@ -57,3 +57,51 @@ class MeAPIOutput(BaseModel):
     success: bool
     data: UserAPIData | None = None
     error: str | None = None
+
+
+class ForgotPasswordSendOtpAPIInput(BaseModel):
+    email: str = Field(..., min_length=1, max_length=255)
+
+
+class ForgotPasswordSendOtpAPIData(BaseModel):
+    sent: bool
+    expires_in: int
+    message: str
+
+
+class ForgotPasswordSendOtpAPIOutput(BaseModel):
+    success: bool
+    data: ForgotPasswordSendOtpAPIData | None = None
+    error: str | None = None
+
+
+class ForgotPasswordVerifyOtpAPIInput(BaseModel):
+    email: str = Field(..., min_length=1, max_length=255)
+    otp: str = Field(..., min_length=4, max_length=8)
+
+
+class ForgotPasswordVerifyOtpAPIData(BaseModel):
+    verified: bool
+    reset_token: str
+    expires_in: int
+
+
+class ForgotPasswordVerifyOtpAPIOutput(BaseModel):
+    success: bool
+    data: ForgotPasswordVerifyOtpAPIData | None = None
+    error: str | None = None
+
+
+class ForgotPasswordResetAPIInput(BaseModel):
+    reset_token: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=255)
+
+
+class ForgotPasswordResetAPIData(BaseModel):
+    reset: bool
+
+
+class ForgotPasswordResetAPIOutput(BaseModel):
+    success: bool
+    data: ForgotPasswordResetAPIData | None = None
+    error: str | None = None
