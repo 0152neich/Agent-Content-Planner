@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from api.dependencies import get_current_user
+from api.helpers.exception_handler import to_user_error_message
 from api.models.user import (
     UserAPIData,
     UserAPIOutput,
@@ -29,7 +30,7 @@ from app.services import (
     UserService,
 )
 from infra.database.pg.schemas import User
-from shared.logging import get_logger, redact_message
+from shared.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -72,7 +73,11 @@ def _extract_current_user(
     if not auth_result.status:
         return (
             None,
-            redact_message(auth_result.error or "Unauthorized."),
+            to_user_error_message(
+                error=auth_result.error,
+                status_code=auth_result.code,
+                fallback="Unauthorized.",
+            ),
             auth_result.code,
         )
     if not isinstance(auth_result.data, User):
@@ -144,7 +149,11 @@ async def get_users(
             UserListAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Get users failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Get users failed.",
+                ),
             ),
             result.code,
         )
@@ -209,7 +218,11 @@ async def get_user_by_id(
             UserAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Get user failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Get user failed.",
+                ),
             ),
             result.code,
         )
@@ -264,7 +277,11 @@ async def create_user(input: UserCreateAPIInput) -> UserAPIOutput | JSONResponse
             UserAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Create user failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Create user failed.",
+                ),
             ),
             result.code,
         )
@@ -341,7 +358,11 @@ async def update_user(
             UserAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Update user failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Update user failed.",
+                ),
             ),
             result.code,
         )
@@ -458,7 +479,11 @@ async def upload_user_avatar(
             UserAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Upload avatar failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Upload avatar failed.",
+                ),
             ),
             result.code,
         )
@@ -522,7 +547,11 @@ async def delete_user(
             UserDeleteAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Delete user failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Delete user failed.",
+                ),
             ),
             result.code,
         )

@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from starlette.responses import Response
 
 from api.dependencies import get_current_user
+from api.helpers.exception_handler import to_user_error_message
 from api.models.auth import (
     AuthTokenAPIData,
     ForgotPasswordResetAPIData,
@@ -263,7 +264,11 @@ async def login(
             LoginAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Login failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Login failed.",
+                ),
             ),
             result.code,
         )
@@ -331,7 +336,11 @@ async def refresh(request: Request) -> RefreshAPIOutput | JSONResponse:
             RefreshAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Refresh failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Refresh failed.",
+                ),
             ),
             result.code,
         )
@@ -389,7 +398,11 @@ async def logout(request: Request) -> LogoutAPIOutput | JSONResponse:
             LogoutAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Logout failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Logout failed.",
+                ),
             ),
             result.code,
         )
@@ -418,7 +431,11 @@ async def me(
             MeAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(current_user_result.error or "Unauthorized."),
+                error=to_user_error_message(
+                    error=current_user_result.error,
+                    status_code=current_user_result.code,
+                    fallback="Unauthorized.",
+                ),
             ),
             current_user_result.code,
         )
@@ -478,7 +495,11 @@ async def forgot_password_send_otp(
             ForgotPasswordSendOtpAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Send OTP failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Send OTP failed.",
+                ),
             ),
             result.code,
         )
@@ -536,7 +557,11 @@ async def forgot_password_verify_otp(
             ForgotPasswordVerifyOtpAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Verify OTP failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Verify OTP failed.",
+                ),
             ),
             result.code,
         )
@@ -596,7 +621,11 @@ async def forgot_password_reset(
             ForgotPasswordResetAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(result.error or "Reset password failed."),
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Reset password failed.",
+                ),
             ),
             result.code,
         )

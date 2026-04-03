@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from api.dependencies import get_current_user
+from api.helpers.exception_handler import to_user_error_message
 from api.models.content import ContentPlanAPIInput
 from api.models.content import ContentPlanAPIData, ContentPlanAPIOutput
 from app.services import (
@@ -51,7 +52,11 @@ async def create_content_plan(
             ContentPlanAPIOutput(
                 success=False,
                 data=None,
-                error=redact_message(current_user_result.error or "Unauthorized."),
+                error=to_user_error_message(
+                    error=current_user_result.error,
+                    status_code=current_user_result.code,
+                    fallback="Unauthorized.",
+                ),
             ),
             current_user_result.code,
         )
@@ -104,8 +109,11 @@ async def create_content_plan(
             ContentPlanAPIOutput(
                 success=False,
                 data=None,
-                error=result.error
-                or "Pipeline failed without a specific error message.",
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Pipeline failed without a specific error message.",
+                ),
             ),
             result.code,
         )
@@ -131,8 +139,11 @@ async def create_content_plan(
                 ContentPlanAPIOutput(
                     success=False,
                     data=None,
-                    error=persist_result.error
-                    or "Generated content but failed to persist snapshot.",
+                    error=to_user_error_message(
+                        error=persist_result.error,
+                        status_code=persist_result.code,
+                        fallback="Generated content but failed to persist snapshot.",
+                    ),
                 ),
                 persist_result.code,
             )

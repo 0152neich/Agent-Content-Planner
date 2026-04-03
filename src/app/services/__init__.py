@@ -20,6 +20,7 @@ from .conversation_service import (
     ListProjectConversationsInput,
     ListProjectHistoryInput,
     PersistContentPlanSnapshotInput,
+    RestoreRunSnapshotInput,
     SaveRunSnapshotInput,
     UpdateConversationInput,
 )
@@ -92,6 +93,7 @@ __all__ = [
     "ListConversationMessagesInput",
     "ListProjectHistoryInput",
     "PersistContentPlanSnapshotInput",
+    "RestoreRunSnapshotInput",
     "SaveRunSnapshotInput",
     "GoogleAuthCallbackInput",
     "LoginInput",

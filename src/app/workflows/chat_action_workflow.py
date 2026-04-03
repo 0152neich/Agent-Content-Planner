@@ -253,7 +253,11 @@ class ChatActionWorkflowService(BaseModel):
         )
         task = Task(
             description=(
-                "Reply naturally as a chatbot and keep snapshot unchanged.\n"
+                "Reply naturally as a friendly chatbot and keep snapshot unchanged.\n"
+                "Use the same language as the user (Vietnamese or English).\n"
+                "Keep answer concise (2-4 sentences) unless user asks for more detail.\n"
+                "Do not dump raw fields like 'Core:' or 'Audience:' unless user explicitly asks.\n"
+                "If useful, integrate snapshot context smoothly into a normal sentence.\n"
                 f"User prompt: {prompt}\n"
                 f"Snapshot context:\n{snapshot_context}\n"
                 "Output JSON with only field 'reply'."

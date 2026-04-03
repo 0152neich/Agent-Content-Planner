@@ -5,10 +5,17 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from api.helpers.exception_handler import (
+    to_http_detail_message,
+    to_user_error_message,
+    to_validation_error_message,
+)
 from api.routers import (
     auth_router,
     content_plan_router,
@@ -18,10 +25,11 @@ from api.routers import (
     project_router,
     user_router,
 )
-from shared.logging import setup_logging
+from shared.logging import get_logger, setup_logging
 from shared.thread_pools import install_default_executors, shutdown_executors
 
 setup_logging(is_production=False)
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -74,6 +82,58 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+
+def _error_response(*, status_code: int, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"success": False, "data": None, "error": message},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def _handle_request_validation_error(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    logger.warning(
+        "request_validation_failed",
+        path=request.url.path,
+        method=request.method,
+        error_count=len(exc.errors()),
+    )
+    return _error_response(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        message=to_validation_error_message(exc.errors()),
+    )
+
+
+@app.exception_handler(HTTPException)
+async def _handle_http_exception(request: Request, exc: HTTPException) -> JSONResponse:
+    message = to_http_detail_message(detail=exc.detail, status_code=exc.status_code)
+    return _error_response(status_code=exc.status_code, message=message)
+
+
+@app.exception_handler(Exception)
+async def _handle_unexpected_exception(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    if isinstance(exc, asyncio.CancelledError):
+        raise exc
+    logger.exception(
+        "unhandled_exception",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+    )
+    return _error_response(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        message=to_user_error_message(
+            error=str(exc),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            fallback="Something went wrong on our side. Please try again later.",
+        ),
+    )
+
 
 # ── CORS (adjust origins in production) ──────────────────────────────────────
 app.add_middleware(
