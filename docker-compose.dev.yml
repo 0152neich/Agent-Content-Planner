@@ -26,3 +26,44 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: postgres
+      POSTGRES__PORT: 5432
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+    ports:
+      - 8000:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-tier
+
+  frontend:
+    image: node:20-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_BASE_URL: http://localhost:8000/api/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - 5173:5173
+    depends_on:
+      - backend
+    networks:
+      - app-tier

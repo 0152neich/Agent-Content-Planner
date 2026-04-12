@@ -42,4 +42,5 @@ build/
 .ruff_cache
 src/uploads/
 
+.sonar/
 frontend/
