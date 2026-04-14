@@ -11,7 +11,9 @@ def _normalize_csv(value: str) -> str:
 
 class OpenAISettings(BaseModel):
     model: str = "gpt-4o-mini"
-    allowed_models: str = "gpt-5.4,gpt-5.1,gpt-5,gpt-4.1,gpt-4o,gpt-4o-mini,gpt-4-turbo"
+    allowed_models: str = (
+        "gpt-5.4,gpt-5.1,gpt-5,gpt-4.1,gpt-4.1-mini,gpt-4o,gpt-4o-mini,gpt-4-turbo"
+    )
     api_key: str
     api_base: str
     temperature: float = 0.3

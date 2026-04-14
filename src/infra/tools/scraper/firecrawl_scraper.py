@@ -2,7 +2,7 @@ from crewai.tools import BaseTool
 from shared.settings import Settings
 from shared.logging import get_logger
 from shared.base import BaseModel
-from .errors import ScraperToolError
+from shared.exceptions import ScraperToolError
 
 logger = get_logger(__name__)
 

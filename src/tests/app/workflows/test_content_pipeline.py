@@ -12,7 +12,7 @@ from app.workflows.content_pipeline import (
     ContentPlanningService,
 )
 from domain.models.models import ContentPlanOutput, DraftAnalysis, SocialPostsBundle
-from infra.tools.tools import UnsupportedModelError
+from shared.exceptions import UnsupportedModelError
 
 # ---------------------------------------------------------------------------
 # Patch definitions

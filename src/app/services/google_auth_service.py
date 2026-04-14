@@ -15,6 +15,7 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from infra.database.pg import SQLDatabase
 from infra.database.pg.schemas import User, UserIdentity
 from shared.base import BaseModel
+from shared.exceptions import GoogleAuthError
 from shared.logging import get_logger, redact_message
 from shared.settings import Settings
 from shared.settings.models import PostgresSettings
@@ -29,13 +30,6 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 _ALLOWED_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
 _STATE_TOKEN_TYPE = "google_oauth_state"
-
-
-class GoogleAuthError(Exception):
-    def __init__(self, message: str, *, code: int = 401) -> None:
-        super().__init__(message)
-        self.message = message
-        self.code = code
 
 
 class GoogleAuthStartOutput(BaseModel):

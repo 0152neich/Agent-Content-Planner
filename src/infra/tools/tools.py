@@ -4,15 +4,12 @@ from crewai import LLM as CrewAILLM
 
 from infra.tools.scraper import BS4ScraperTool
 from infra.tools.scraper import FirecrawlScraperTool
+from shared.exceptions import UnsupportedModelError
 from shared.logging import get_logger
 from shared.settings import Settings
 
 settings = Settings()
 logger = get_logger(__name__)
-
-
-class UnsupportedModelError(ValueError):
-    """Raised when selected model is invalid or unsupported by current provider."""
 
 
 def get_scraper_tool():

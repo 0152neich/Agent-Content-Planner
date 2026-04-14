@@ -1,5 +1,5 @@
 from __future__ import annotations
 
+from shared.exceptions import ScraperToolError
 
-class ScraperToolError(RuntimeError):
-    """Raised when scraper cannot produce valid source content."""
+__all__ = ["ScraperToolError"]

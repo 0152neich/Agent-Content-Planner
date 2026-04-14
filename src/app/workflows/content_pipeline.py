@@ -23,9 +23,8 @@ from app.tasks import (
     create_write_task,
 )
 from domain.models.models import ContentPlanOutput, DraftAnalysis, SocialPostsBundle
-from infra.tools.scraper import ScraperToolError
-from infra.tools.tools import UnsupportedModelError
 from shared.base import BaseModel, BaseService
+from shared.exceptions import ScraperToolError, UnsupportedModelError
 from shared.logging import get_logger
 from shared.logging import redact_message
 from shared.settings import Settings

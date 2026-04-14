@@ -13,9 +13,9 @@ from app.workflows.chat_snapshot import ContentPlanSnapshot, SnapshotPatch
 from app.workflows.content_pipeline import ContentPlanningInput, ContentPlanningService
 from app.tasks import create_analyze_task
 from domain.models.models import ContentPlanOutput, DraftAnalysis, Platform, SocialPost
-from infra.tools.scraper import ScraperToolError
-from infra.tools.tools import UnsupportedModelError, get_crewai_llm
+from infra.tools.tools import get_crewai_llm
 from shared.base import BaseModel
+from shared.exceptions import ScraperToolError, UnsupportedModelError
 from shared.logging import get_logger, redact_message
 from shared.settings import Settings
 from shared.settings.models import CrewSettings

@@ -139,8 +139,8 @@ def _build_message_create_api_data(
     )
 
 
-def _to_ndjson(payload: dict[str, Any]) -> str:
-    return f"{json.dumps(payload, ensure_ascii=False)}\n"
+def _to_sse(event: str, payload: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
 def _chunk_text(value: str, chunk_size: int = 32) -> list[str]:
@@ -688,15 +688,16 @@ async def create_conversation_message_stream(
             ),
         )
 
-        yield _to_ndjson({"type": "status", "status": "started"})
+        yield _to_sse("status", {"status": "started"})
 
         while not task.done():
-            yield _to_ndjson({"type": "status", "status": "processing"})
+            yield _to_sse("status", {"status": "processing"})
             await asyncio.sleep(0.6)
 
         try:
             result = await task
         except asyncio.CancelledError:
+            task.cancel()
             logger.warning(
                 "Create message stream cancelled.",
                 user_id=user.id,
@@ -709,38 +710,38 @@ async def create_conversation_message_stream(
                 error=str(exc),
                 conversation_id=conversation_id,
             )
-            yield _to_ndjson(
+            yield _to_sse(
+                "error",
                 {
-                    "type": "error",
                     "error": "Unexpected error while creating message.",
                     "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                }
+                },
             )
             return
 
         if not result.status:
-            yield _to_ndjson(
+            yield _to_sse(
+                "error",
                 {
-                    "type": "error",
                     "error": to_user_error_message(
                         error=result.error,
                         status_code=result.code,
                         fallback="Create message failed.",
                     ),
                     "code": result.code,
-                }
+                },
             )
             return
 
         payload = result.data if isinstance(result.data, dict) else {}
         data, _ = _build_message_create_api_data(payload)
         if data is None:
-            yield _to_ndjson(
+            yield _to_sse(
+                "error",
                 {
-                    "type": "error",
                     "error": "Unexpected message payload.",
                     "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                }
+                },
             )
             return
 
@@ -748,16 +749,17 @@ async def create_conversation_message_stream(
             data.assistant_message.content if data.assistant_message else ""
         )
         for chunk in _chunk_text(assistant_text):
-            yield _to_ndjson({"type": "delta", "delta": chunk})
+            yield _to_sse("delta", {"delta": chunk})
             await asyncio.sleep(0.03)
 
-        yield _to_ndjson({"type": "done", "data": data.model_dump(mode="json")})
+        yield _to_sse("done", data.model_dump(mode="json"))
 
     return StreamingResponse(
         stream_generator(),
-        media_type="application/x-ndjson",
+        media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
         },
     )
