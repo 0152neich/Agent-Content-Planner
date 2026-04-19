@@ -6,18 +6,76 @@ from app.workflows.chat_snapshot import (
     SnapshotPatch,
     apply_partial_update,
 )
-from domain.models.models import DraftAnalysis, Platform, SocialPost
+from domain.models.models import (
+    DraftAnalysis,
+    FunnelStage,
+    Platform,
+    ReaderIntent,
+    SocialPost,
+    SupportingClaim,
+)
+
+
+def _analysis(core: str, audience: str) -> DraftAnalysis:
+    return DraftAnalysis(
+        core_message=core,
+        value_proposition=f"{core} value proposition",
+        reader_intent=ReaderIntent.LEARN,
+        funnel_stage=FunnelStage.AWARENESS,
+        target_audience=audience,
+        audience_pain_points=[
+            "Pain point 1",
+            "Pain point 2",
+            "Pain point 3",
+        ],
+        audience_desired_outcomes=[
+            "Outcome 1",
+            "Outcome 2",
+            "Outcome 3",
+        ],
+        key_takeaways=[
+            f"{core} takeaway 1",
+            f"{core} takeaway 2",
+            f"{core} takeaway 3",
+        ],
+        supporting_claims=[
+            SupportingClaim(
+                claim=f"{core} claim 1",
+                evidence_excerpt=f"{core} excerpt 1",
+                evidence_reason="Evidence supports claim 1",
+            ),
+            SupportingClaim(
+                claim=f"{core} claim 2",
+                evidence_excerpt=f"{core} excerpt 2",
+                evidence_reason="Evidence supports claim 2",
+            ),
+            SupportingClaim(
+                claim=f"{core} claim 3",
+                evidence_excerpt=f"{core} excerpt 3",
+                evidence_reason="Evidence supports claim 3",
+            ),
+        ],
+        tone_of_voice="Professional",
+        voice_guidelines=[
+            "Guideline 1",
+            "Guideline 2",
+            "Guideline 3",
+        ],
+        primary_cta="Try one action now.",
+        cta_reasoning="Low-friction CTA.",
+        risk_flags=[
+            "Risk 1",
+            "Risk 2",
+        ],
+        confidence_score=0.8,
+        missing_information=["Missing benchmark metrics."],
+    )
 
 
 def _base_snapshot() -> ContentPlanSnapshot:
     return ContentPlanSnapshot(
         source_url="https://example.com/post",
-        analysis=DraftAnalysis(
-            core_message="Core A",
-            key_takeaways=["A1", "A2", "A3"],
-            target_audience="Developers",
-            tone_of_voice="Professional",
-        ),
+        analysis=_analysis("Core A", "Developers"),
         social_posts=[
             SocialPost(
                 platform=Platform.LINKEDIN,
@@ -77,14 +135,7 @@ def test_apply_partial_update_reanalyze_only_keeps_social_posts() -> None:
 
     updated, affected = apply_partial_update(
         snapshot=snapshot,
-        patch=SnapshotPatch(
-            analysis=DraftAnalysis(
-                core_message="Core B",
-                key_takeaways=["B1", "B2", "B3"],
-                target_audience="Marketers",
-                tone_of_voice="Friendly",
-            )
-        ),
+        patch=SnapshotPatch(analysis=_analysis("Core B", "Marketers")),
         action=ChatAction.REANALYZE_ONLY,
     )
 

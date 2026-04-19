@@ -27,7 +27,15 @@ class ContentPlanSnapshot(BaseModel):
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "ContentPlanSnapshot":
-        return cls.model_validate(payload)
+        if not isinstance(payload, dict):
+            raise ValueError("Snapshot payload must be an object.")
+
+        normalized = dict(payload)
+        analysis_raw = normalized.get("analysis")
+        if isinstance(analysis_raw, dict):
+            normalized["analysis"] = DraftAnalysis.from_payload(analysis_raw)
+
+        return cls.model_validate(normalized)
 
 
 class SnapshotPatch(BaseModel):

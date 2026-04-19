@@ -163,6 +163,78 @@ def test_process_passes_additional_context_into_crew_inputs(
     assert captured_inputs.get("additional_context") == "Focus on B2B audience."
 
 
+def test_process_passes_target_language_into_task_factories(
+    service: ContentPlanningService,
+    content_planning_input_with_context: ContentPlanningInput,
+    fake_draft_analysis: DraftAnalysis,
+    fake_social_posts_bundle: SocialPostsBundle,
+) -> None:
+    captured_tasks: list = []
+    crew_patch = patch(
+        "app.workflows.content_pipeline.Crew",
+        side_effect=_make_capture_crew(
+            fake_draft_analysis, fake_social_posts_bundle, captured_tasks
+        ),
+    )
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "app.workflows.content_pipeline.create_analyzer_agent",
+                return_value=MagicMock(),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.workflows.content_pipeline.create_strategist_agent",
+                return_value=MagicMock(),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.workflows.content_pipeline.create_copywriter_agent",
+                return_value=MagicMock(),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.workflows.content_pipeline.create_editor_agent",
+                return_value=MagicMock(),
+            )
+        )
+        mocked_analyze = stack.enter_context(
+            patch(
+                "app.workflows.content_pipeline.create_analyze_task",
+                return_value=MagicMock(),
+            )
+        )
+        mocked_strategize = stack.enter_context(
+            patch(
+                "app.workflows.content_pipeline.create_strategize_task",
+                return_value=MagicMock(),
+            )
+        )
+        mocked_write = stack.enter_context(
+            patch(
+                "app.workflows.content_pipeline.create_write_task",
+                return_value=MagicMock(),
+            )
+        )
+        mocked_review = stack.enter_context(
+            patch(
+                "app.workflows.content_pipeline.create_review_task",
+                return_value=MagicMock(),
+            )
+        )
+        stack.enter_context(crew_patch)
+        service.process(content_planning_input_with_context)
+
+    assert mocked_analyze.call_args.args[2] == "en"
+    assert mocked_strategize.call_args.args[1] == "en"
+    assert mocked_write.call_args.args[1] == "en"
+    assert mocked_review.call_args.args[1] == "en"
+
+
 def test_process_uses_empty_string_when_additional_context_is_none(
     service: ContentPlanningService,
     content_planning_input: ContentPlanningInput,

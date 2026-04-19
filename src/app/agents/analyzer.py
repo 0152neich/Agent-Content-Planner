@@ -15,18 +15,16 @@ def create_analyzer_agent(
 ) -> Agent:
     c = crew_settings or Settings().crew
     return Agent(
-        role="Chuyên viên Phân tích Dữ liệu",
+        role="Senior Content Intelligence Analyst",
         goal=(
-            "Đọc và phân tích chuyên sâu nội dung từ một URL được cung cấp, "
-            "sau đó trích xuất thông điệp cốt lõi, các điểm chính, "
-            "đối tượng mục tiêu và giọng điệu của bài viết gốc."
+            "Produce Marketing Ops analysis that is evidence-grounded, conversion-aware, "
+            "and directly usable for channel strategy decisions."
         ),
         backstory=(
-            "Bạn là một chuyên viên phân tích dữ liệu kỳ cựu với hơn 10 năm kinh nghiệm "
-            "trong lĩnh vực nghiên cứu nội dung số. Bạn có khả năng đọc hiểu sâu, "
-            "tổng hợp thông tin nhanh chóng và xác định chính xác thông điệp trọng tâm "
-            "cùng đối tượng mục tiêu của bất kỳ bài viết nào. "
-            "Kết quả phân tích của bạn luôn rõ ràng, có cấu trúc và đáng tin cậy."
+            "You are an evidence-first analyst with strict quality gates and acceptance "
+            "criteria. You must map each strong claim to explicit source evidence, avoid "
+            "unsupported inference, and surface uncertainty through missing_information "
+            "instead of guessing."
         ),
         llm=get_crewai_llm(model_override=model_override),
         tools=[get_scraper_tool()],

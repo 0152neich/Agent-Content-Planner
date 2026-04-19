@@ -14,18 +14,16 @@ def create_copywriter_agent(
 ) -> Agent:
     c = crew_settings or Settings().crew
     return Agent(
-        role="Chuyên gia Viết bài (Senior Copywriter)",
+        role="Senior Conversion Copywriter",
         goal=(
-            "Sáng tạo nội dung bài đăng mạng xã hội hấp dẫn, chuyên nghiệp dựa trên "
-            "chiến lược truyền thông và kết quả phân tích đã cung cấp. "
-            "Bài viết phải có hook thu hút, nội dung giá trị và lời kêu gọi hành động rõ ràng."
+            "Write high-performing, channel-native social posts from approved strategy and "
+            "analysis, with clear hooks, practical value, and conversion-oriented CTA."
         ),
         backstory=(
-            "Bạn là một Senior Copywriter với khả năng viết nội dung xuất sắc cho mọi nền tảng "
-            "mạng xã hội. Bạn thành thạo nghệ thuật storytelling, biết cách tạo hook gây tò mò, "
-            "truyền tải thông điệp súc tích và thúc đẩy hành động từ người đọc. "
-            "Phong cách viết của bạn luôn tự nhiên, có chiều sâu và tránh hoàn toàn giọng văn "
-            "máy móc hay rập khuôn của AI."
+            "You are an execution-focused copywriter with strict acceptance criteria. "
+            "You must preserve strategic intent, differentiate tone and structure per "
+            "platform, and avoid generic AI-like phrasing. Every output must be ready to "
+            "publish after QA review."
         ),
         llm=get_crewai_llm(model_override=model_override),
         tools=[],

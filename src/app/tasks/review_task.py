@@ -3,36 +3,42 @@ from crewai import Agent, Task
 from domain.models.models import SocialPostsBundle
 
 
-def create_review_task(agent: Agent) -> Task:
+def create_review_task(agent: Agent, target_language: str) -> Task:
+    language_name = "Vietnamese" if target_language == "vi" else "English"
     return Task(
         description=(
-            "Rà soát và kiểm duyệt chất lượng toàn bộ bài đăng mạng xã hội "
-            "đã được Copywriter soạn thảo.\n\n"
-            "Tiêu chí đánh giá BẮT BUỘC:\n"
-            "1. ✅ Chính tả & Ngữ pháp: Không chấp nhận bất kỳ lỗi nào.\n"
-            "2. ✅ Độ dài phù hợp từng nền tảng:\n"
-            "   - LinkedIn: Tối đa 3.000 ký tự.\n"
-            "   - Facebook: Tối đa 2.000 ký tự để đảm bảo hiển thị tối ưu.\n"
-            "3. ✅ Phát hiện & Loại bỏ 'AI Tone' — các dấu hiệu bao gồm:\n"
-            "   - Cụm từ sáo rỗng: 'In today\\'s world', 'It\\'s important to', 'As an AI...'.\n"
-            "   - Cấu trúc câu rập khuôn, thiếu cá tính và cảm xúc tự nhiên.\n"
-            "   - Giọng văn quá hoàn hảo, thiếu lỗi nhỏ bình thường của con người.\n"
-            "4. ✅ Tính nhất quán: Nội dung phải phù hợp với phân tích và chiến lược ban đầu.\n"
-            "5. ✅ Platform differentiation: 2 bài LinkedIn và Facebook phải khác nhau rõ rệt "
-            "về giọng điệu và cách tiếp cận.\n\n"
-            "QUY TRÌNH:\n"
-            "- Nếu bài đăng ĐẠT chuẩn: Trả về nguyên bài đăng đã được chỉnh sửa nhỏ (nếu có).\n"
-            "- Nếu bài đăng CHƯA đạt: Tự sửa trực tiếp và trả về bản đã hoàn chỉnh. "
-            "KHÔNG yêu cầu viết lại từ đầu."
+            "Review and finalize copywriter outputs under strict QA SOP.\n\n"
+            "Language policy:\n"
+            f"- Finalized content must remain in {language_name}.\n"
+            "- Do not switch language.\n\n"
+            "Hard quality gates (must pass all):\n"
+            "1. Language correctness:\n"
+            "   - No spelling or grammar errors.\n"
+            "2. Platform character limits:\n"
+            "   - LinkedIn <= 3000 characters.\n"
+            "   - Facebook <= 2000 characters.\n"
+            "3. Anti-generic writing quality:\n"
+            "   - Remove templated AI-like phrasing and empty filler.\n"
+            "   - Keep wording natural, specific, and audience-relevant.\n"
+            "4. Strategy and analysis alignment:\n"
+            "   - Message, tone, and CTA must stay aligned with approved strategy.\n"
+            "5. Platform differentiation:\n"
+            "   - LinkedIn and Facebook versions must be clearly distinct in angle and voice.\n\n"
+            "Execution rule:\n"
+            "- If any gate fails, you must fix inline and return the final corrected output.\n"
+            "- Do not request a full rewrite loop.\n"
+            "- Return only the final publish-ready JSON bundle."
         ),
         expected_output=(
-            "Một JSON object với trường 'posts' là list chứa ĐÚNG 2 bài đăng đã qua kiểm duyệt:\n"
-            "Mỗi bài đăng có cấu trúc:\n"
-            "- platform: 'linkedin' hoặc 'facebook'\n"
-            "- hook: string — Câu mở đầu thu hút đã kiểm duyệt\n"
-            "- body_content: string — Nội dung chính đã kiểm duyệt\n"
-            "- call_to_action: string — Lời kêu gọi hành động đã kiểm duyệt\n"
-            "- hashtags: list of strings — 3-5 hashtags đã kiểm duyệt"
+            "Return EXACTLY one JSON object:\n"
+            "- posts: list containing EXACTLY 2 reviewed posts.\n"
+            "Each post must contain:\n"
+            "- platform: 'linkedin' or 'facebook'\n"
+            "- hook: string\n"
+            "- body_content: string\n"
+            "- call_to_action: string\n"
+            "- hashtags: list[str] with 3-5 items\n"
+            f"Language requirement: hook/body_content/call_to_action must be {language_name}."
         ),
         agent=agent,
         output_pydantic=SocialPostsBundle,

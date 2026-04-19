@@ -22,6 +22,8 @@ from app.tasks import (
     create_strategize_task,
     create_write_task,
 )
+from app.workflows.agent_contracts import AgentContractGateway, WorkflowContractError
+from shared.language_policy import LanguagePolicyService
 from domain.models.models import ContentPlanOutput, DraftAnalysis, SocialPostsBundle
 from shared.base import BaseModel, BaseService
 from shared.exceptions import ScraperToolError, UnsupportedModelError
@@ -269,6 +271,19 @@ class ContentPlanningService(BaseService):
             code=500,
         )
         try:
+            language_policy = LanguagePolicyService()
+            target_language = language_policy.detect_target_language(
+                inputs.additional_context
+            )
+            contract_gateway = AgentContractGateway()
+            logger.info(
+                "content_pipeline_stage_started",
+                stage="initialize",
+                owner_user_id=requester_user_id,
+                conversation_id=None,
+                action="CONTENT_PLAN",
+                language_used=target_language,
+            )
             analyzer_agent = create_analyzer_agent(
                 model_override=selected_model, crew_settings=crew_cfg
             )
@@ -282,10 +297,12 @@ class ContentPlanningService(BaseService):
                 model_override=selected_model, crew_settings=crew_cfg
             )
 
-            analyze_task = create_analyze_task(analyzer_agent, inputs.url)
-            strategize_task = create_strategize_task(strategist_agent)
-            write_task = create_write_task(copywriter_agent)
-            review_task = create_review_task(editor_agent)
+            analyze_task = create_analyze_task(
+                analyzer_agent, inputs.url, target_language
+            )
+            strategize_task = create_strategize_task(strategist_agent, target_language)
+            write_task = create_write_task(copywriter_agent, target_language)
+            review_task = create_review_task(editor_agent, target_language)
 
             strategize_task.context = [analyze_task]
             write_task.context = [analyze_task, strategize_task]
@@ -310,13 +327,35 @@ class ContentPlanningService(BaseService):
                 }
             )
 
-            analysis: DraftAnalysis = analyze_task.output.pydantic
-            reviewed_posts: SocialPostsBundle = review_task.output.pydantic
+            analysis_output: DraftAnalysis = analyze_task.output.pydantic
+            reviewed_output: SocialPostsBundle = review_task.output.pydantic
+
+            analysis, analysis_repair_applied = contract_gateway.validate_analysis(
+                analysis_output,
+                target_language=target_language,
+                stage="analysis_output",
+            )
+            reviewed_posts, posts_repair_applied = (
+                contract_gateway.validate_social_posts_bundle(
+                    reviewed_output,
+                    target_language=target_language,
+                    stage="review_output",
+                )
+            )
 
             final_output = ContentPlanOutput(
                 source_url=inputs.url,
                 analysis=analysis,
                 social_posts=reviewed_posts.posts,
+            )
+            logger.info(
+                "content_pipeline_stage_completed",
+                stage="completed",
+                owner_user_id=requester_user_id,
+                conversation_id=None,
+                action="CONTENT_PLAN",
+                language_used=target_language,
+                repair_applied=(analysis_repair_applied or posts_repair_applied),
             )
             final_result = ContentPlanningOutput(
                 status=True, data=final_output, error=None, code=200
@@ -325,6 +364,23 @@ class ContentPlanningService(BaseService):
                 request_key=request_key,
                 result=final_result,
                 ttl_seconds=crew_cfg.result_cache_ttl_seconds,
+            )
+            return final_result
+        except WorkflowContractError as exc:
+            logger.warning(
+                "content_pipeline_stage_failed",
+                stage=exc.stage,
+                owner_user_id=requester_user_id,
+                conversation_id=None,
+                action="CONTENT_PLAN",
+                error_code=exc.code,
+                error=redact_message(exc.detail),
+            )
+            final_result = ContentPlanningOutput(
+                status=False,
+                data=None,
+                error=f"{exc.code}: {redact_message(exc.detail)}",
+                code=422,
             )
             return final_result
         except UnsupportedModelError as exc:
