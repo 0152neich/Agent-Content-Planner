@@ -74,6 +74,17 @@ class PasswordResetOTP(DatabaseSchema):
     user_agent: str | None = Field(None, max_length=512)
 
 
+class SocialConnection(DatabaseSchema):
+    user_id: str = Field(..., min_length=1, max_length=64)
+    provider: str = Field(..., min_length=1, max_length=32)
+    access_token_encrypted: str = Field(..., min_length=1)
+    refresh_token_encrypted: str | None = None
+    token_expires_at: datetime | None = None
+    provider_account_id: str | None = Field(None, max_length=255)
+    provider_account_name: str | None = Field(None, max_length=255)
+    revoked_at: datetime | None = None
+
+
 class Project(DatabaseSchema):
     owner_user_id: str = Field(..., min_length=1, max_length=64)
     name: str = Field(..., min_length=1, max_length=128)

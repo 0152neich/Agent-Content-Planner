@@ -53,6 +53,21 @@ from .password_reset_service import (
     SendPasswordResetOtpInput,
     VerifyPasswordResetOtpInput,
 )
+from .social_publish_service import (
+    SocialPublishInput,
+    SocialPublishService,
+    SocialPublishServiceOutput,
+)
+from .linkedin_connection_service import (
+    LinkedInConnectionService,
+    LinkedInConnectionServiceOutput,
+    LinkedInOAuthCallbackInput,
+)
+from .facebook_connection_service import (
+    FacebookConnectionService,
+    FacebookConnectionServiceOutput,
+    FacebookOAuthCallbackInput,
+)
 from .user_service import (
     CreateUserInput,
     DeleteUserInput,
@@ -103,6 +118,15 @@ __all__ = [
     "ResetPasswordInput",
     "RefreshInput",
     "SendPasswordResetOtpInput",
+    "SocialPublishInput",
+    "SocialPublishService",
+    "SocialPublishServiceOutput",
+    "LinkedInConnectionService",
+    "LinkedInConnectionServiceOutput",
+    "LinkedInOAuthCallbackInput",
+    "FacebookConnectionService",
+    "FacebookConnectionServiceOutput",
+    "FacebookOAuthCallbackInput",
     "UpdateUserInput",
     "UpdateProjectInput",
     "UpdateConversationInput",

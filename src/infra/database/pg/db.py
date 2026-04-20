@@ -22,7 +22,9 @@ from .conversation_run import ConversationRunRepositoryImpl
 from .password_reset_otp import PasswordResetOTPRepositoryImpl
 from .project import ProjectRepositoryImpl
 from .refresh_token import RefreshTokenRepositoryImpl
+from .social_connection import SocialConnectionRepositoryImpl
 from .schemas import PasswordResetOTP
+from .schemas import SocialConnection
 from .user import UserRepositoryImpl
 from .user_identity import UserIdentityRepositoryImpl
 
@@ -36,6 +38,7 @@ class SQLDatabase(
     ConversationMessageRepositoryImpl,
     ConversationRunRepositoryImpl,
     PasswordResetOTPRepositoryImpl,
+    SocialConnectionRepositoryImpl,
 ):
     """PostgreSQL-backed database: session factory + User repository implementation.
 
@@ -109,6 +112,43 @@ class SQLDatabase(
         limit: int | None = None,
     ) -> list[PasswordResetOTP] | None:
         return PasswordResetOTPRepositoryImpl.get_password_reset_otps(
+            self,
+            session=session,
+            filter=filter,
+            order_by=order_by,
+            limit=limit,
+        )
+
+    # Re-expose social connection methods for static type-checking.
+    def insert_social_connection(
+        self, session: Session, model: SocialConnection
+    ) -> SocialConnection:
+        return SocialConnectionRepositoryImpl.insert_social_connection(
+            self, session=session, model=model
+        )
+
+    def update_social_connection(
+        self, session: Session, model: SocialConnection
+    ) -> SocialConnection | None:
+        return SocialConnectionRepositoryImpl.update_social_connection(
+            self, session=session, model=model
+        )
+
+    def get_social_connection_by_id(
+        self, session: Session, id: str
+    ) -> SocialConnection | None:
+        return SocialConnectionRepositoryImpl.get_social_connection_by_id(
+            self, session=session, id=id
+        )
+
+    def get_social_connections(
+        self,
+        session: Session,
+        filter: dict[str, object] | None = None,
+        order_by: Sequence | None = None,
+        limit: int | None = None,
+    ) -> list[SocialConnection] | None:
+        return SocialConnectionRepositoryImpl.get_social_connections(
             self,
             session=session,
             filter=filter,

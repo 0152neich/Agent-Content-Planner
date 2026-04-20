@@ -10,6 +10,7 @@ from .repositories import (
     PasswordResetOTPRepository,
     ProjectRepository,
     RefreshTokenRepository,
+    SocialConnectionRepository,
     UserRepository,
     UserIdentityRepository,
 )
@@ -20,6 +21,7 @@ from .schemas import (
     PasswordResetOTP,
     Project,
     RefreshToken,
+    SocialConnection,
     User,
     UserIdentity,
 )
@@ -32,6 +34,7 @@ __all__ = [
     "ConversationRunRepository",
     "PasswordResetOTPRepository",
     "RefreshTokenRepository",
+    "SocialConnectionRepository",
     "UserRepository",
     "UserIdentityRepository",
     "Project",
@@ -40,6 +43,7 @@ __all__ = [
     "ConversationRun",
     "PasswordResetOTP",
     "RefreshToken",
+    "SocialConnection",
     "User",
     "UserIdentity",
 ]

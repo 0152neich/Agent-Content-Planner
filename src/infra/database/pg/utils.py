@@ -51,6 +51,13 @@ def _update(
         obj = session.get(model_cls, data.id)
         if obj:
             payload = data.model_dump(exclude_none=True, exclude={"id", "createdAt"})
+            # Preserve explicit null updates (e.g. revoked_at=None on reconnect)
+            # while still ignoring unspecified fields.
+            for field_name in data.model_fields_set:
+                if field_name in {"id", "createdAt"}:
+                    continue
+                if getattr(data, field_name, None) is None:
+                    payload[field_name] = None
             for k, v in payload.items():
                 if hasattr(obj, k):
                     setattr(obj, k, v)

@@ -23,6 +23,7 @@ from api.routers import (
     health_router,
     history_router,
     project_router,
+    social_publish_router,
     user_router,
 )
 from shared.logging import get_logger, setup_logging
@@ -155,6 +156,7 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(project_router, prefix="/api/v1")
 app.include_router(conversation_router, prefix="/api/v1")
 app.include_router(history_router, prefix="/api/v1")
+app.include_router(social_publish_router, prefix="/api/v1")
 
 if __name__ == "__main__":
     import uvicorn

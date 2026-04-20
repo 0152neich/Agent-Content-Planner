@@ -11,6 +11,7 @@ from .conversation_run import ConversationRun
 from .password_reset_otp import PasswordResetOTP
 from .project import Project
 from .refresh_token import RefreshToken
+from .social_connection import SocialConnection
 from .user import User
 from .user_identity import UserIdentity
 
@@ -24,6 +25,7 @@ __all__ = [
     "ConversationRun",
     "PasswordResetOTP",
     "RefreshToken",
+    "SocialConnection",
     "User",
     "UserIdentity",
 ]

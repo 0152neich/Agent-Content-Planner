@@ -267,10 +267,12 @@ class DraftAnalysis(BaseModel):
             funnel_stage_raw = "awareness"
 
         confidence_raw = payload.get("confidence_score")
-        try:
-            confidence_score = float(confidence_raw)
-        except (TypeError, ValueError):
-            confidence_score = 0.6
+        confidence_score = 0.6
+        if isinstance(confidence_raw, (int, float, str)):
+            try:
+                confidence_score = float(confidence_raw)
+            except ValueError:
+                confidence_score = 0.6
         confidence_score = max(0.0, min(1.0, confidence_score))
 
         normalized_payload = {

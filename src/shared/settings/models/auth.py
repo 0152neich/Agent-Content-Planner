@@ -34,6 +34,31 @@ class AuthSettings(BaseModel):
     google_state_cookie_samesite: str = Field(default="lax")
     google_state_cookie_secure: bool = Field(default=True)
 
+    linkedin_enabled: bool = Field(default=False)
+    linkedin_client_id: str = Field(default="")
+    linkedin_client_secret: str = Field(default="")
+    linkedin_redirect_uri: str = Field(
+        default="http://localhost:8000/api/v1/social/linkedin/callback"
+    )
+    linkedin_scope: str = Field(default="openid profile email w_member_social")
+    linkedin_state_ttl_seconds: int = Field(default=300, ge=60)
+    linkedin_fe_success_redirect: str = Field(default="http://localhost:5173/profile")
+    linkedin_fe_error_redirect: str = Field(default="http://localhost:5173/profile")
+
+    facebook_enabled: bool = Field(default=False)
+    facebook_client_id: str = Field(default="")
+    facebook_client_secret: str = Field(default="")
+    facebook_redirect_uri: str = Field(
+        default="http://localhost:8000/api/v1/social/facebook/callback"
+    )
+    facebook_scope: str = Field(
+        default="pages_show_list pages_read_engagement pages_manage_posts"
+    )
+    facebook_state_ttl_seconds: int = Field(default=300, ge=60)
+    facebook_fe_success_redirect: str = Field(default="http://localhost:5173/profile")
+    facebook_fe_error_redirect: str = Field(default="http://localhost:5173/profile")
+    social_token_encryption_key: str = Field(default="")
+
     forgot_password_enabled: bool = Field(default=True)
     forgot_password_otp_length: int = Field(default=6, ge=4, le=8)
     forgot_password_otp_ttl_minutes: int = Field(default=10, ge=1, le=60)
