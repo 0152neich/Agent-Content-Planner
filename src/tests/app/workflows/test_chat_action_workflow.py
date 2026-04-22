@@ -26,7 +26,14 @@ def test_build_action_assistant_text_vi_is_readable() -> None:
         affected_sections=["analysis", "social_posts"],
     )
 
-    assert "Mình đã làm mới toàn bộ nội dung" in text
+    assert any(
+        phrase in text
+        for phrase in (
+            "Mình đã làm mới toàn bộ nội dung",
+            "Mình vừa tái tạo lại full pipeline",
+            "Đã regenerate toàn bộ output",
+        )
+    )
     assert "MÃ" not in text
 
 

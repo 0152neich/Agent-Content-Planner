@@ -24,6 +24,12 @@ def test_route_reanalyze_only() -> None:
     assert intent.action == ChatAction.REANALYZE_ONLY
 
 
+def test_route_reanalyze_only_with_accented_vietnamese() -> None:
+    router = ChatIntentRouter()
+    intent = router.route("Bạn hãy viết lại bài phân tích sang ngôn ngữ tiếng Việt")
+    assert intent.action == ChatAction.REANALYZE_ONLY
+
+
 def test_route_rewrite_strategy_only() -> None:
     router = ChatIntentRouter()
     intent = router.route("cap nhat strategy cho campaign")

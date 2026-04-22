@@ -50,7 +50,9 @@ def test_copywriter_agent_prompt_contract() -> None:
     kwargs = mocked_agent.call_args.kwargs
     assert kwargs["role"] == "Senior Conversion Copywriter"
     assert "channel-native social posts" in kwargs["goal"]
+    assert "framework compliance before style" in kwargs["goal"]
     assert "acceptance criteria" in kwargs["backstory"]
+    assert "follow assigned PAS/AIDA structure" in kwargs["backstory"]
     assert "avoid generic AI-like phrasing" in kwargs["backstory"]
 
 
@@ -65,5 +67,6 @@ def test_editor_agent_prompt_contract() -> None:
     kwargs = mocked_agent.call_args.kwargs
     assert kwargs["role"] == "Strict QA Content Editor"
     assert "quality gates" in kwargs["goal"]
-    assert "pass/fail acceptance criteria" in kwargs["backstory"]
+    assert "proof integrity" in kwargs["goal"]
+    assert "hard fail semantics" in kwargs["backstory"]
     assert "correct it inline" in kwargs["backstory"]

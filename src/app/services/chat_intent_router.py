@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 from crewai import Agent, Crew, Process, Task
@@ -28,8 +29,17 @@ class ChatIntentRouter(BaseModel):
         return " ".join(prompt.strip().lower().split())
 
     @staticmethod
-    def _contains_any(text: str, keywords: list[str]) -> bool:
-        return any(keyword in text for keyword in keywords)
+    def _strip_accents(text: str) -> str:
+        normalized = unicodedata.normalize("NFD", text)
+        without_marks = "".join(
+            ch for ch in normalized if unicodedata.category(ch) != "Mn"
+        )
+        return without_marks.replace("đ", "d").replace("Đ", "D")
+
+    @classmethod
+    def _contains_any(cls, text: str, keywords: list[str]) -> bool:
+        folded = cls._strip_accents(text)
+        return any(keyword in text or keyword in folded for keyword in keywords)
 
     @staticmethod
     def _is_question_like(text: str) -> bool:

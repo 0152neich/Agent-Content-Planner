@@ -17,12 +17,14 @@ def create_copywriter_agent(
         role="Senior Conversion Copywriter",
         goal=(
             "Write high-performing, channel-native social posts from approved strategy and "
-            "analysis, with clear hooks, practical value, and conversion-oriented CTA."
+            "analysis, with framework compliance before style, clear hooks, practical value, "
+            "and one conversion-oriented CTA."
         ),
         backstory=(
             "You are an execution-focused copywriter with strict acceptance criteria. "
-            "You must preserve strategic intent, differentiate tone and structure per "
-            "platform, and avoid generic AI-like phrasing. Every output must be ready to "
+            "You must preserve strategic intent, follow assigned PAS/AIDA structure, "
+            "differentiate tone and structure per platform, and avoid generic AI-like phrasing. "
+            "Every output must be ready to "
             "publish after QA review."
         ),
         llm=get_crewai_llm(model_override=model_override),

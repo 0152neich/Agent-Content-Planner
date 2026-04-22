@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from crewai import LLM as CrewAILLM
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 from infra.tools.scraper import BS4ScraperTool
 from infra.tools.scraper import FirecrawlScraperTool
@@ -147,6 +153,79 @@ def resolve_llm_target(
         f"Unsupported LLM provider '{selected_provider}'. "
         "Supported providers: openai, anthropic, gemini."
     )
+
+
+def _extract_chunk_text(chunk: Any) -> str:
+    content = getattr(chunk, "content", "")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if isinstance(item, dict):
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+                continue
+            text = getattr(item, "text", None)
+            if isinstance(text, str):
+                parts.append(text)
+        return "".join(parts)
+    return ""
+
+
+def stream_llm_text(
+    *,
+    prompt: str,
+    model_override: str | None = None,
+    on_delta: Callable[[str], None] | None = None,
+) -> str:
+    provider, selected_model = resolve_llm_target(
+        model_override=model_override,
+        requires_structured_output=False,
+    )
+    callback = on_delta or (lambda _delta: None)
+
+    if provider == "openai":
+        client = ChatOpenAI(
+            model=selected_model,
+            api_key=settings.openai.api_key,
+            openai_api_base=settings.openai.api_base,
+            temperature=settings.openai.temperature,
+            request_timeout=settings.openai.request_timeout,
+            streaming=True,
+        )
+    elif provider == "anthropic":
+        client = ChatAnthropic(
+            model=selected_model,
+            api_key=settings.anthropic.api_key,
+            temperature=settings.anthropic.temperature,
+            timeout=settings.anthropic.request_timeout,
+            streaming=True,
+        )
+    elif provider == "gemini":
+        client = ChatGoogleGenerativeAI(
+            model=selected_model,
+            api_key=settings.gemini.api_key,
+            temperature=settings.gemini.temperature,
+            timeout=settings.gemini.request_timeout,
+        )
+    else:
+        raise UnsupportedModelError(
+            f"Unsupported provider '{provider}' for streaming text."
+        )
+
+    parts: list[str] = []
+    for chunk in client.stream(prompt):
+        delta = _extract_chunk_text(chunk)
+        if not delta:
+            continue
+        parts.append(delta)
+        callback(delta)
+    return "".join(parts).strip()
 
 
 def get_crewai_llm(

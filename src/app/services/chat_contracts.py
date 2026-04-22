@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
@@ -33,6 +34,7 @@ class ChatRefinementInput(BaseModel):
     selected_model: str | None = None
     source_url: str | None = None
     snapshot: dict[str, Any] | None = None
+    assistant_token_callback: Callable[[str], None] | None = None
 
 
 class ChatRefinementOutput(BaseModel):

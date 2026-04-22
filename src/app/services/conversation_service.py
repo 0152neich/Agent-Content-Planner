@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -78,6 +79,7 @@ class CreateConversationMessageInput(BaseModel):
     source_url: str | None = None
     platforms: list[str] = Field(default_factory=list)
     silent: bool = False
+    assistant_token_callback: Callable[[str], None] | None = None
 
 
 class ListProjectHistoryInput(BaseModel):
@@ -769,6 +771,7 @@ class ConversationService(BaseModel):
                         selected_model=model_name,
                         source_url=source_url,
                         snapshot=latest_snapshot,
+                        assistant_token_callback=inputs.assistant_token_callback,
                     )
                 )
                 safe_refinement_error = self._sanitize_refinement_error(

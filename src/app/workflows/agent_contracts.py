@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, TypeVar
 
 from shared.language_policy import LanguagePolicyService, TargetLanguage
 from domain.models.models import DraftAnalysis, Platform, SocialPost, SocialPostsBundle
+
+_TContract = TypeVar("_TContract")
 
 
 @dataclass(slots=True)
@@ -28,12 +30,13 @@ class AgentContractGateway:
         target_language: TargetLanguage,
         stage: str,
     ) -> tuple[DraftAnalysis, bool]:
+        def _validator(value: DraftAnalysis) -> None:
+            self._validate_analysis_business(value, target_language=target_language)
+
         return self._validate_with_single_repair(
             value=analysis,
             stage=stage,
-            validator=lambda value: self._validate_analysis_business(
-                value, target_language=target_language
-            ),
+            validator=_validator,
             repairer=self._repair_analysis,
             repair_label="analysis",
         )
@@ -46,17 +49,21 @@ class AgentContractGateway:
         stage: str,
         expected_platform: Platform | None = None,
     ) -> tuple[SocialPost, bool]:
-        return self._validate_with_single_repair(
-            value=post,
-            stage=stage,
-            validator=lambda value: self._validate_social_post_business(
+        def _validator(value: SocialPost) -> None:
+            self._validate_social_post_business(
                 value,
                 target_language=target_language,
                 expected_platform=expected_platform,
-            ),
-            repairer=lambda value: self._repair_social_post(
-                value, expected_platform=expected_platform
-            ),
+            )
+
+        def _repairer(value: SocialPost) -> SocialPost:
+            return self._repair_social_post(value, expected_platform=expected_platform)
+
+        return self._validate_with_single_repair(
+            value=post,
+            stage=stage,
+            validator=_validator,
+            repairer=_repairer,
             repair_label="social_post",
         )
 
@@ -67,12 +74,13 @@ class AgentContractGateway:
         target_language: TargetLanguage,
         stage: str,
     ) -> tuple[SocialPostsBundle, bool]:
+        def _validator(value: SocialPostsBundle) -> None:
+            self._validate_bundle_business(value, target_language=target_language)
+
         return self._validate_with_single_repair(
             value=bundle,
             stage=stage,
-            validator=lambda value: self._validate_bundle_business(
-                value, target_language=target_language
-            ),
+            validator=_validator,
             repairer=self._repair_bundle,
             repair_label="social_posts_bundle",
         )
@@ -80,12 +88,12 @@ class AgentContractGateway:
     def _validate_with_single_repair(
         self,
         *,
-        value,
+        value: _TContract,
         stage: str,
-        validator: Callable[[object], None],
-        repairer: Callable[[object], object],
+        validator: Callable[[_TContract], None],
+        repairer: Callable[[_TContract], _TContract],
         repair_label: str,
-    ) -> tuple[object, bool]:
+    ) -> tuple[_TContract, bool]:
         try:
             validator(value)
             return value, False

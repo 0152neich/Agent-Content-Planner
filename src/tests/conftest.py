@@ -87,9 +87,7 @@ def fake_draft_analysis() -> DraftAnalysis:
             "Cần số liệu nền chiến dịch để định lượng mức cải thiện.",
         ],
         confidence_score=0.84,
-        missing_information=[
-            "Bài viết chưa cung cấp benchmark cụ thể theo từng kênh."
-        ],
+        missing_information=["Bài viết chưa cung cấp benchmark cụ thể theo từng kênh."],
     )
 
 

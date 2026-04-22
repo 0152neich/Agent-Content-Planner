@@ -17,10 +17,10 @@ def create_editor_agent(
         role="Strict QA Content Editor",
         goal=(
             "Enforce final quality gates on social posts: language correctness, platform fit, "
-            "strategy alignment, and publish-ready clarity."
+            "strategy alignment, proof integrity, and publish-ready clarity."
         ),
         backstory=(
-            "You are a strict editor with pass/fail acceptance criteria. "
+            "You are a strict quality gate enforcer with hard fail semantics. "
             "If a draft fails any gate, you must correct it inline and return a final "
             "version in one pass. You never ask for a full rewrite loop when a direct edit "
             "can resolve the issue."

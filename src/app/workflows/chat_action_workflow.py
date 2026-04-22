@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any
 
 from crewai import Agent, Crew, Process, Task
@@ -24,6 +25,7 @@ from domain.models.models import (
     SocialPostsBundle,
 )
 from infra.tools.tools import get_crewai_llm
+from infra.tools.tools import stream_llm_text
 from shared.base import BaseModel
 from shared.language_policy import LanguagePolicyService, TargetLanguage
 from shared.exceptions import ScraperToolError, UnsupportedModelError
@@ -41,6 +43,7 @@ class ChatActionWorkflowInput(BaseModel):
     source_url: str | None = None
     snapshot: ContentPlanSnapshot | None = None
     owner_user_id: str
+    assistant_token_callback: Callable[[str], None] | None = None
 
 
 class ChatActionWorkflowOutput(BaseModel):
@@ -128,6 +131,12 @@ class ChatActionWorkflowService(BaseModel):
         logger.info("chat_action_stage_lifecycle", **log_payload)
 
     @staticmethod
+    def _stable_variant(seed: str, size: int) -> int:
+        if size <= 1:
+            return 0
+        return sum(ord(ch) for ch in seed) % size
+
+    @staticmethod
     def _build_action_assistant_text(
         *,
         action: ChatAction,
@@ -135,96 +144,123 @@ class ChatActionWorkflowService(BaseModel):
         affected_sections: list[str],
         platform: Platform | None = None,
         repair_applied: bool = False,
+        prompt: str | None = None,
     ) -> str:
         sections = ", ".join(affected_sections) if affected_sections else "snapshot"
+        seed = (
+            f"{action.value}|{platform.value if platform else ''}|{sections}|"
+            f"{prompt or ''}|{int(repair_applied)}"
+        )
+        repair_text_vi = (
+            "Mình đã tinh chỉnh nhẹ lần cuối để câu chữ và định dạng nhất quán hơn."
+            if repair_applied
+            else "Kết quả đã hợp lệ ngay từ lần chạy đầu tiên."
+        )
+        repair_text_en = (
+            "I applied one lightweight normalization pass to keep the output contract-safe."
+            if repair_applied
+            else "The output passed contract validation on the first pass."
+        )
+
         if target_language == "vi":
             if action == ChatAction.FULL_REGENERATE:
-                return (
-                    "Mình đã làm mới toàn bộ nội dung theo yêu cầu của bạn. "
-                    f"Các phần đã cập nhật: {sections}. "
-                    + (
-                        "Mình có tinh chỉnh nhẹ để dữ liệu nhất quán hơn."
-                        if repair_applied
-                        else "Mọi phần đều ổn ngay từ lần xử lý đầu tiên."
-                    )
-                )
+                openings = [
+                    "Mình đã làm mới toàn bộ nội dung theo yêu cầu mới của bạn.",
+                    "Mình vừa tái tạo lại full pipeline để đồng bộ toàn bộ nội dung.",
+                    "Đã regenerate toàn bộ output để bám sát prompt mới của bạn.",
+                ]
+                opening = openings[
+                    ChatActionWorkflowService._stable_variant(seed, len(openings))
+                ]
+                return f"{opening} Phần cập nhật: {sections}. {repair_text_vi}"
             if action == ChatAction.REANALYZE_ONLY:
+                openings = [
+                    "Mình đã phân tích lại theo đúng yêu cầu của bạn.",
+                    "Mình vừa chạy lại bước phân tích với prompt mới.",
+                    "Đã re-analyze xong phần phân tích theo hướng bạn muốn.",
+                ]
+                opening = openings[
+                    ChatActionWorkflowService._stable_variant(seed, len(openings))
+                ]
                 return (
-                    "Mình đã phân tích lại theo đúng prompt mới của bạn. "
-                    "Mình chỉ cập nhật phần phân tích, các bài đăng hiện tại vẫn giữ nguyên. "
-                    f"Phần đã đổi: {sections}. "
-                    + (
-                        "Mình có chỉnh nhẹ để kết quả gọn và đúng định dạng hơn."
-                        if repair_applied
-                        else "Kết quả đã ổn ngay, không cần chỉnh thêm."
-                    )
+                    f"{opening} Mình chỉ cập nhật phần analysis, các social post đang giữ nguyên. "
+                    f"Phần thay đổi: {sections}. {repair_text_vi}"
                 )
             if action == ChatAction.REWRITE_STRATEGY_ONLY:
+                openings = [
+                    "Mình đã cập nhật lại định hướng chiến lược.",
+                    "Mình vừa chỉnh lại phần strategy theo yêu cầu mới.",
+                    "Đã rewrite phần strategy để khớp mục tiêu bạn đưa ra.",
+                ]
+                opening = openings[
+                    ChatActionWorkflowService._stable_variant(seed, len(openings))
+                ]
                 return (
-                    "Mình đã cập nhật lại định hướng chiến lược theo yêu cầu của bạn. "
-                    "Các bài post hiện tại vẫn được giữ nguyên. "
-                    f"Phần đã đổi: {sections}. "
-                    + (
-                        "Mình có chỉnh nhẹ để phần strategy rõ hơn trước khi lưu."
-                        if repair_applied
-                        else "Strategy mới đã được lưu trực tiếp."
-                    )
+                    f"{opening} Các bài social hiện tại vẫn được giữ nguyên. "
+                    f"Phần thay đổi: {sections}. {repair_text_vi}"
                 )
             platform_name = platform.value if platform is not None else "social"
+            openings = [
+                f"Mình đã viết lại bài {platform_name} theo đúng ý bạn.",
+                f"Đã chỉnh lại bài {platform_name} theo prompt mới của bạn.",
+                f"Mình vừa rewrite bài {platform_name} theo hướng bạn yêu cầu.",
+            ]
+            opening = openings[
+                ChatActionWorkflowService._stable_variant(seed, len(openings))
+            ]
             return (
-                f"Mình đã viết lại bài {platform_name} theo đúng ý bạn. "
-                "Mình chỉ cập nhật đúng bài bạn chọn, các phần còn lại giữ nguyên. "
-                f"Phần đã đổi: {sections}. "
-                + (
-                    "Mình có chỉnh nhẹ để câu chữ mượt và đúng định dạng hơn."
-                    if repair_applied
-                    else "Bản mới đã sẵn sàng cho bước tiếp theo."
-                )
+                f"{opening} Mình chỉ cập nhật đúng bài bạn chọn, các phần còn lại giữ nguyên. "
+                f"Phần thay đổi: {sections}. {repair_text_vi}"
             )
 
         if action == ChatAction.FULL_REGENERATE:
-            return (
-                "I regenerated the full pipeline for your source URL and refreshed both analysis and social posts. "
-                "The output is now consistent across analysis, strategy, and channel content based on your latest prompt. "
-                f"Updated sections: {sections}. "
-                + (
-                    "A single lightweight repair pass was applied to keep stage contracts valid."
-                    if repair_applied
-                    else "The outputs passed stage contracts on the first validation pass."
-                )
-            )
+            openings = [
+                "I regenerated the full pipeline based on your latest prompt.",
+                "I refreshed the entire content output end-to-end.",
+                "I reran full generation to align all sections with your new direction.",
+            ]
+            opening = openings[
+                ChatActionWorkflowService._stable_variant(seed, len(openings))
+            ]
+            return f"{opening} Updated sections: {sections}. {repair_text_en}"
         if action == ChatAction.REANALYZE_ONLY:
+            openings = [
+                "I re-analyzed the source content using your latest prompt.",
+                "I reran analysis based on your updated instruction.",
+                "I refreshed the analysis section according to your request.",
+            ]
+            opening = openings[
+                ChatActionWorkflowService._stable_variant(seed, len(openings))
+            ]
             return (
-                "I re-analyzed the source content using your current prompt. "
-                "Only the Analysis section was updated, while social posts were kept intact to avoid unintended changes. "
-                f"Updated section: {sections}. "
-                + (
-                    "One normalization repair pass was applied before finalizing the result."
-                    if repair_applied
-                    else "The analysis passed contract validation without requiring repair."
-                )
+                f"{opening} Only analysis was updated; existing social posts remain unchanged. "
+                f"Updated section: {sections}. {repair_text_en}"
             )
         if action == ChatAction.REWRITE_STRATEGY_ONLY:
+            openings = [
+                "I updated the strategy direction based on your latest instruction.",
+                "I refined the strategy layer while keeping your current posts intact.",
+                "I rewrote the strategy section to match your requested angle.",
+            ]
+            opening = openings[
+                ChatActionWorkflowService._stable_variant(seed, len(openings))
+            ]
             return (
-                "I updated the strategy direction in metadata based on your latest instruction. "
-                "Your existing social posts were intentionally left unchanged. "
-                f"Updated section: {sections}. "
-                + (
-                    "A single repair pass was used to normalize the strategy output before storing it."
-                    if repair_applied
-                    else "The updated strategy passed contract checks directly."
-                )
+                f"{opening} Existing social posts were intentionally left unchanged. "
+                f"Updated section: {sections}. {repair_text_en}"
             )
         platform_name = platform.value if platform is not None else "social"
+        openings = [
+            f"I rewrote the {platform_name} post based on your latest prompt.",
+            f"I updated the {platform_name} post to match your instruction.",
+            f"I refined the {platform_name} draft according to your new direction.",
+        ]
+        opening = openings[
+            ChatActionWorkflowService._stable_variant(seed, len(openings))
+        ]
         return (
-            f"I rewrote the {platform_name} post based on your latest prompt. "
-            "Only the targeted post was changed, and the rest of the snapshot remains untouched. "
-            f"Updated section: {sections}. "
-            + (
-                "A lightweight repair pass was applied once to normalize the final payload."
-                if repair_applied
-                else "The rewritten output passed contract checks and is ready for the next step."
-            )
+            f"{opening} Only the targeted post was changed; the rest of the snapshot stays untouched. "
+            f"Updated section: {sections}. {repair_text_en}"
         )
 
     def _build_single_post_task(
@@ -318,6 +354,7 @@ class ChatActionWorkflowService(BaseModel):
             target_language=target_language,
             affected_sections=affected_sections,
             repair_applied=repair_applied,
+            prompt=prompt,
         )
         self._log_stage(
             status="completed",
@@ -403,6 +440,7 @@ class ChatActionWorkflowService(BaseModel):
             affected_sections=affected_sections,
             platform=platform,
             repair_applied=repair_applied,
+            prompt=prompt,
         )
         self._log_stage(
             status="completed",
@@ -492,6 +530,7 @@ class ChatActionWorkflowService(BaseModel):
             target_language=target_language,
             affected_sections=affected_sections,
             repair_applied=False,
+            prompt=prompt,
         )
         self._log_stage(
             status="completed",
@@ -521,6 +560,7 @@ class ChatActionWorkflowService(BaseModel):
         target_language: TargetLanguage,
         selected_model: str | None,
         snapshot: ContentPlanSnapshot | None,
+        assistant_token_callback: Callable[[str], None] | None = None,
     ) -> ChatActionWorkflowOutput:
         language_name = "Vietnamese" if target_language == "vi" else "English"
         if self._is_small_talk_prompt(prompt):
@@ -546,6 +586,53 @@ class ChatActionWorkflowService(BaseModel):
             action=ChatAction.GENERAL_QA,
             language_used=target_language,
         )
+        if assistant_token_callback is not None:
+            snapshot_context = (
+                f"Core: {snapshot.analysis.core_message}\n"
+                f"Value proposition: {snapshot.analysis.value_proposition}\n"
+                f"Reader intent: {snapshot.analysis.reader_intent.value}\n"
+                f"Funnel stage: {snapshot.analysis.funnel_stage.value}\n"
+                f"Audience: {snapshot.analysis.target_audience}\n"
+                f"Primary CTA: {snapshot.analysis.primary_cta}\n"
+                if snapshot is not None
+                else "No snapshot available."
+            )
+            streamed_reply = stream_llm_text(
+                model_override=selected_model,
+                on_delta=assistant_token_callback,
+                prompt="Reply naturally and keep snapshot unchanged.\n"
+                f"Use exactly {language_name}.\n"
+                "Answer the user's exact prompt directly in 1-3 sentences.\n"
+                "Do not drift into unrelated topics.\n"
+                "Do not dump raw fields like 'Core:' or 'Audience:' unless user explicitly asks.\n"
+                "Use snapshot context only when it helps the current question.\n"
+                f"User prompt: {prompt}\n"
+                f"Snapshot context:\n{snapshot_context}\n"
+                "Return only the final assistant reply text.",
+            )
+            reply_text = streamed_reply.strip()
+            if not reply_text:
+                raise ValueError("General QA streamed output is empty.")
+            self._log_stage(
+                status="completed",
+                stage="general_qa",
+                owner_user_id=owner_user_id,
+                action=ChatAction.GENERAL_QA,
+                language_used=target_language,
+                streaming_used=True,
+            )
+            return ChatActionWorkflowOutput(
+                status=True,
+                assistant_text=reply_text,
+                patch=SnapshotPatch(),
+                affected_sections=[],
+                metadata={
+                    "language_used": target_language,
+                    "streaming_used": True,
+                },
+                code=200,
+            )
+
         llm = get_crewai_llm(model_override=selected_model)
         qa_agent = Agent(
             role="Campaign Assistant",
@@ -609,7 +696,7 @@ class ChatActionWorkflowService(BaseModel):
             assistant_text=reply_output.reply,
             patch=SnapshotPatch(),
             affected_sections=[],
-            metadata={"language_used": target_language},
+            metadata={"language_used": target_language, "streaming_used": False},
             code=200,
         )
 
@@ -673,6 +760,7 @@ class ChatActionWorkflowService(BaseModel):
                         target_language=target_language,
                         affected_sections=affected_sections,
                         repair_applied=repair_applied,
+                        prompt=prompt,
                     ),
                     patch=SnapshotPatch(full_snapshot=snapshot),
                     affected_sections=affected_sections,
@@ -759,6 +847,7 @@ class ChatActionWorkflowService(BaseModel):
                 target_language=target_language,
                 selected_model=selected_model,
                 snapshot=inputs.snapshot,
+                assistant_token_callback=inputs.assistant_token_callback,
             )
         except WorkflowContractError as exc:
             self._log_stage(

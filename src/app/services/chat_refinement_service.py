@@ -243,6 +243,7 @@ class ChatRefinementService(BaseModel):
                     or (snapshot.source_url if snapshot else None),
                     snapshot=snapshot,
                     owner_user_id=inputs.owner_user_id,
+                    assistant_token_callback=inputs.assistant_token_callback,
                 )
             )
             if not workflow_result.status:

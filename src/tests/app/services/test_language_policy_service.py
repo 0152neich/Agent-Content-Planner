@@ -7,7 +7,7 @@ def test_detect_target_language_returns_vietnamese_for_vietnamese_prompt() -> No
     service = LanguagePolicyService()
     assert (
         service.detect_target_language(
-            "Hãy viết lại bài đăng này tự nhiên và dễ đọc hơn."
+            "H\u00e3y vi\u1ebft l\u1ea1i b\u00e0i \u0111\u0103ng n\u00e0y t\u1ef1 nhi\u00ean v\u00e0 d\u1ec5 \u0111\u1ecdc h\u01a1n."
         )
         == "vi"
     )

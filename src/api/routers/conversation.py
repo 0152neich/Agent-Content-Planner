@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from functools import partial
 from typing import Any, AsyncIterator
 
@@ -143,11 +144,12 @@ def _to_sse(event: str, payload: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def _chunk_text(value: str, chunk_size: int = 32) -> list[str]:
+def _chunk_text(value: str) -> list[str]:
     text = value or ""
     if not text:
         return []
-    return [text[idx : idx + chunk_size] for idx in range(0, len(text), chunk_size)]
+    # Keep trailing spaces with each token so FE can reconstruct natural spacing.
+    return re.findall(r"\S+\s*", text)
 
 
 @conversation_router.get(
@@ -672,6 +674,15 @@ async def create_conversation_message_stream(
 
     async def stream_generator() -> AsyncIterator[str]:
         loop = asyncio.get_running_loop()
+        delta_queue: asyncio.Queue[str] = asyncio.Queue()
+        streamed_delta_emitted = False
+
+        def _on_token(delta: str) -> None:
+            if not delta:
+                return
+            for word in _chunk_text(delta):
+                loop.call_soon_threadsafe(delta_queue.put_nowait, word)
+
         task = loop.run_in_executor(
             get_crew_executor(),
             partial(
@@ -684,15 +695,21 @@ async def create_conversation_message_stream(
                     source_url=str(input.source_url) if input.source_url else None,
                     platforms=input.platforms,
                     silent=input.silent,
+                    assistant_token_callback=_on_token,
                 ),
             ),
         )
 
         yield _to_sse("status", {"status": "started"})
 
-        while not task.done():
-            yield _to_sse("status", {"status": "processing"})
-            await asyncio.sleep(0.6)
+        while not task.done() or not delta_queue.empty():
+            try:
+                delta = await asyncio.wait_for(delta_queue.get(), timeout=0.6)
+            except asyncio.TimeoutError:
+                yield _to_sse("status", {"status": "processing"})
+                continue
+            streamed_delta_emitted = True
+            yield _to_sse("delta", {"delta": delta})
 
         try:
             result = await task
@@ -748,9 +765,11 @@ async def create_conversation_message_stream(
         assistant_text = (
             data.assistant_message.content if data.assistant_message else ""
         )
-        for chunk in _chunk_text(assistant_text):
-            yield _to_sse("delta", {"delta": chunk})
-            await asyncio.sleep(0.03)
+        if not streamed_delta_emitted and assistant_text:
+            # Fallback: simulate per-word delivery when workflow returns final text at once.
+            for chunk in _chunk_text(assistant_text):
+                yield _to_sse("delta", {"delta": chunk})
+                await asyncio.sleep(0.02)
 
         yield _to_sse("done", data.model_dump(mode="json"))
 

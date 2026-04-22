@@ -58,6 +58,12 @@ class PasswordResetService(BaseModel):
         return datetime.now(timezone.utc)
 
     @staticmethod
+    def _to_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
     def _normalize_email(value: str) -> str:
         return value.strip().lower()
 
@@ -171,7 +177,9 @@ class PasswordResetService(BaseModel):
         return sorted(
             rows,
             key=lambda row: (
-                row.createdAt or datetime.min.replace(tzinfo=timezone.utc),
+                PasswordResetService._to_utc(
+                    row.createdAt or datetime.min.replace(tzinfo=timezone.utc)
+                ),
                 row.id or "",
             ),
             reverse=True,
@@ -223,7 +231,9 @@ class PasswordResetService(BaseModel):
                     request_count = sum(
                         1
                         for row in recent_rows
-                        if (row.createdAt or datetime.min.replace(tzinfo=timezone.utc))
+                        if self._to_utc(
+                            row.createdAt or datetime.min.replace(tzinfo=timezone.utc)
+                        )
                         >= one_hour_ago
                     )
                     if (
@@ -240,7 +250,10 @@ class PasswordResetService(BaseModel):
                     for row in recent_rows:
                         if row.reset_at is not None:
                             continue
-                        if row.consumed_at is None and row.expires_at > now:
+                        if (
+                            row.consumed_at is None
+                            and self._to_utc(row.expires_at) > now
+                        ):
                             row.consumed_at = now
                             self._db.update_password_reset_otp(
                                 session=session, model=row
@@ -263,16 +276,12 @@ class PasswordResetService(BaseModel):
                     )
 
             if user is None:
-                logger.info("password_reset_send_otp_ignored_unknown_email")
+                logger.info("password_reset_send_otp_user_not_found", email=email)
                 return PasswordResetServiceOutput(
-                    status=True,
-                    data={
-                        "sent": True,
-                        "expires_in": ttl_seconds,
-                        "message": "If this email exists, OTP has been sent.",
-                    },
-                    error=None,
-                    code=200,
+                    status=False,
+                    data=None,
+                    error="Email is not registered.",
+                    code=404,
                 )
 
             if self._smtp_configured():
@@ -365,7 +374,10 @@ class PasswordResetService(BaseModel):
                         code=401,
                     )
 
-                if otp_row.consumed_at is not None or otp_row.expires_at <= now:
+                if (
+                    otp_row.consumed_at is not None
+                    or self._to_utc(otp_row.expires_at) <= now
+                ):
                     return PasswordResetServiceOutput(
                         status=False,
                         data=None,
