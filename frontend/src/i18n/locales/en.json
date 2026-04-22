@@ -1,0 +1,167 @@
+{
+  "common": {
+    "appName": "AI Content Planner",
+    "login": "Login",
+    "logout": "Logout",
+    "profile": "Profile",
+    "settings": "Settings",
+    "rename": "Rename",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "save": "Save Changes",
+    "actions": "Actions",
+    "switchLanguage": "Language",
+    "twitterHandle": "@aicontent"
+  },
+  "landing": {
+    "enterprise": "Enterprise Edition 2026 Officially Released",
+    "heroTitle": "Automate Your Entire Content Creation & Distribution Flow.",
+    "subHero": "Breakthrough content productivity solution for businesses. From a single URL, our Multi-Agent AI system automatically researches, strategizes, and drafts deep content for all digital platforms.",
+    "startTrial": "Experience Platform",
+    "exploreFlow": "Explore AI Workflow",
+    "architectureTitle": "Intelligent Multi-Agent Architecture",
+    "architectureSub": "Unlike single-prompt AI systems, our platform operates on a deep pipeline model. Four Agents operate independently and coordinate seamlessly to simulate a professional marketing content department.",
+    "footer": "© 2026 AI Content Planner. Leading intelligent content planning system."
+  },
+  "features": {
+    "analyzer": {
+      "title": "Analyzer (Multi-source Analysis)",
+      "description": "Automatically extracts and analyzes data layers from input URLs. AI researches context, identifies core messages, and target customer personas with absolute accuracy."
+    },
+    "strategist": {
+      "title": "Strategist (AI Strategist)",
+      "description": "Builds professional multi-channel content distribution strategies. Suggests creative perspectives, tone of voice, and optimal formats based on actual user behavior on each platform."
+    },
+    "copywriter": {
+      "title": "Copywriter (Smart Pen)",
+      "description": "Transforms strategy into sharp drafts. Applies large language models to create engaging, highly persuasive articles consistent with brand tone."
+    },
+    "editor": {
+      "title": "Editor (Professional Editor)",
+      "description": "Multi-layer review from semantics and grammar to article structure. Ensures sharp content, SEO-friendly, and maximizes conversion rates for every publication."
+    }
+  },
+  "sidebar": {
+    "newChat": "New Chat",
+    "searchPlaceholder": "Search chats",
+    "historyTitle": "Your Chats",
+    "upgrade": "Upgrade",
+    "personalize": "Personalize"
+  },
+  "workspace": {
+    "title": "Input Content Source",
+    "subtitle": "Enter the URL of the article or blog you need to analyze to start creating an in-depth content plan.",
+    "urlLabel": "Content URL",
+    "urlPlaceholder": "https://example.com/article-to-analyze",
+    "notesLabel": "Additional Notes (optional)",
+    "notesPlaceholder": "E.g.: serious tone, focus on B2B audience, emphasize sustainability value...",
+    "generateButton": "Generate Plan & Write Post",
+    "stepper": {
+      "title": "AI Agent System is processing...",
+      "step1": "Analyzer is extracting and understanding content...",
+      "step2": "Strategist is establishing multi-platform perspectives...",
+      "step3": "Copywriter is drafting the content...",
+      "step4": "Editor is reviewing quality..."
+    },
+    "results": {
+      "analysisTab": "Analysis Report",
+      "coreMessageLabel": "Core Message",
+      "targetAudienceLabel": "Target Audience",
+      "keyTakeawaysLabel": "Key Takeaways",
+      "placeholders": {
+        "coreMessage": "Harnessing artificial intelligence (AI) is not about replacing humans, but it's a tool to unlock creativity and optimize performance in the digital age.",
+        "targetAudience": "For marketing professionals, content creators, and entrepreneurs looking to apply AI to multi-channel content development strategies.",
+        "takeaway1": "AI Content Planner automates most manual work, from understanding source articles to distributing multi-platform content.",
+        "takeaway2": "The combination of 4 Agents (Analyzer, Strategist, Copywriter, Editor) ensures professionalism and personalization.",
+        "takeaway3": "Applying AI helps you spend more time on strategy and creating breakthrough ideas."
+      },
+      "copyPost": "Copy Post Content",
+      "justNow": "Just now",
+      "comments": "comments",
+      "shares": "shares",
+      "like": "Like",
+      "comment": "Comment",
+      "share": "Share",
+      "repost": "Repost",
+      "copied": "Copied to clipboard!",
+      "characters": "characters",
+      "15mins": "15 minutes",
+      "2m": "2m",
+      "socialMock": {
+        "linkedin": "Discover how AI Content Planner is completely changing our content creation landscape! 🚀\n\nInstead of spending hours reading, analyzing, and rewriting posts for each platform, I now only need to paste a single URL. The system automatically performs deep analysis, extracts core messages, and distributes multi-platform content.\n\n💡 Why should you care?\n- Optimize 80% of work time.\n- Ensure brand message consistency.\n- Perfect combination of 4 specialized Agents, operating like a mini marketing department.\n\nIf you're struggling with the pressure of producing content every day, it's time to let AI share that burden.\n\n#AI #ContentMarketing #MarketingStrategy #Productivity #AIContentPlanner",
+        "twitter": "Automate your multi-platform content workflow with AI Content Planner. From 1 URL to 4+ specialized Agents working for you. 🚀\n\nDeep analysis, strategic angles, and sharp drafts for LinkedIn, X, and Facebook in seconds.\n\n#AI #Tech #Marketing",
+        "facebook": "Stop struggling with daily content creation! 💡\n\nAI Content Planner uses a Multi-Agent system to transform any article into viral social media posts. \n\n✅ 80% Faster\n✅ Brand Consistent\n✅ Multi-channel optimized\n\nTry it now at aicontentplanner.com! 🚀"
+      }
+    }
+  },
+  "settings": {
+    "title": "System Configuration",
+    "saveSuccess": "System configuration saved successfully!",
+    "tabs": {
+      "scraper": "Scraper Data Config",
+      "ai": "AI Config (LLMs)"
+    },
+    "scraper": {
+      "title": "Data Collection Configuration",
+      "providerLabel": "Scraping Provider",
+      "apiKeyLabel": "Scraping API Key",
+      "apiKeyHelper": "Required for Agent Analyzer to read website content."
+    },
+    "ai": {
+      "title": "Language Model Customization",
+      "providerLabel": "Active AI Provider (LLM_PROVIDER)",
+      "openai": "OpenAI (ChatGPT)",
+      "anthropic": "Anthropic (Claude)",
+      "coreOpenAI": "OpenAI Core Configuration",
+      "coreAnthropic": "Anthropic Claude Core Configuration",
+      "coreGemini": "Google Gemini Core Configuration",
+      "modelLabel": "Model",
+      "customModel": "Customize other model...",
+      "inputModel": "Enter Model Name",
+      "exampleOpenAI": "Example: o1-preview, o1-mini...",
+      "exampleAnthropic": "Enter exact Claude model name",
+      "exampleGemini": "Example: gemini-1.5-flash-8b"
+    },
+    "saving": "Saving system..."
+  },
+  "history": {
+    "title": "Campaign History",
+    "subtitle": "Review content initialized by the AI system in real-time.",
+    "table": {
+      "title": "Original Title",
+      "date": "Created Date",
+      "platforms": "Platforms",
+      "actions": "Actions",
+      "view": "View"
+    },
+    "mock": {
+      "chat1": "Plastic waste report analysis",
+      "chat2": "Launch campaign content plan",
+      "chat3": "October social media plan",
+      "history1": "AI replacement trends in 2026",
+      "history2": "How to build optimized Marketing team",
+      "history3": "Growth strategy for B2B SaaS",
+      "history4": "Optimize homepage conversion rate"
+    }
+  },
+  "auth": {
+    "welcome": "Welcome Back",
+    "emailLabel": "Email Address",
+    "emailPlaceholder": "name@company.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "••••••••",
+    "forgotPassword": "Forgot password?",
+    "rememberMe": "Remember this device",
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "orContinue": "OR CONTINUE WITH",
+    "googleLogin": "Login with Google",
+    "noAccount": "Don't have an account?",
+    "requestAccess": "Request Access"
+  }
+}
