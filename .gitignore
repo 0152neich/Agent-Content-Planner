@@ -34,6 +34,9 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+node_modules/
+*.tsbuildinfo
+*.timestamp-*.mjs
 
 .cursor
 .agent
@@ -43,4 +46,9 @@ build/
 src/uploads/
 
 .sonar/
-frontend/
+
+# Frontend (Vite/TanStack)
+frontend/dist/
+frontend/node_modules/
+frontend/.tanstack/
+frontend/.vite/
