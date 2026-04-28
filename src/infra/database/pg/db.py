@@ -19,11 +19,13 @@ from .models import Base
 from .conversation import ConversationRepositoryImpl
 from .conversation_message import ConversationMessageRepositoryImpl
 from .conversation_run import ConversationRunRepositoryImpl
+from .autopost_job import AutopostJobRepositoryImpl
 from .password_reset_otp import PasswordResetOTPRepositoryImpl
 from .project import ProjectRepositoryImpl
 from .refresh_token import RefreshTokenRepositoryImpl
 from .social_connection import SocialConnectionRepositoryImpl
 from .schemas import PasswordResetOTP
+from .schemas import AutopostJob
 from .schemas import SocialConnection
 from .user import UserRepositoryImpl
 from .user_identity import UserIdentityRepositoryImpl
@@ -37,6 +39,7 @@ class SQLDatabase(
     ConversationRepositoryImpl,
     ConversationMessageRepositoryImpl,
     ConversationRunRepositoryImpl,
+    AutopostJobRepositoryImpl,
     PasswordResetOTPRepositoryImpl,
     SocialConnectionRepositoryImpl,
 ):
@@ -154,4 +157,22 @@ class SQLDatabase(
             filter=filter,
             order_by=order_by,
             limit=limit,
+        )
+
+    # Re-expose autopost job methods for static type-checking.
+    def insert_autopost_job(self, session: Session, model: AutopostJob) -> AutopostJob:
+        return AutopostJobRepositoryImpl.insert_autopost_job(
+            self, session=session, model=model
+        )
+
+    def update_autopost_job(
+        self, session: Session, model: AutopostJob
+    ) -> AutopostJob | None:
+        return AutopostJobRepositoryImpl.update_autopost_job(
+            self, session=session, model=model
+        )
+
+    def get_autopost_job_by_id(self, session: Session, id: str) -> AutopostJob | None:
+        return AutopostJobRepositoryImpl.get_autopost_job_by_id(
+            self, session=session, id=id
         )

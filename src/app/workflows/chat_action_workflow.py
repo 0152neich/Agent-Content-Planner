@@ -78,10 +78,29 @@ class ChatActionWorkflowService(BaseModel):
         )
 
     @staticmethod
-    def _build_small_talk_reply(target_language: TargetLanguage) -> str:
+    def _normalize_prompt(prompt: str) -> str:
+        return " ".join(prompt.strip().lower().split())
+
+    @staticmethod
+    def _truncate_text(value: str, limit: int = 180) -> str:
+        normalized = " ".join(value.strip().split())
+        if len(normalized) <= limit:
+            return normalized
+        return f"{normalized[:limit].rstrip()}..."
+
+    @staticmethod
+    def _fallback_assistant_reply(
+        *,
+        target_language: TargetLanguage,
+        action: ChatAction,
+    ) -> str:
         if target_language == "vi":
-            return "Chào bạn, mình ở đây. Bạn muốn mình chỉnh nội dung nào tiếp theo?"
-        return "Hi there, I am here. What would you like me to refine next?"
+            if action == ChatAction.GENERAL_QA:
+                return "Mình đã nhận yêu cầu. Bạn muốn mình chỉnh phần nào tiếp theo?"
+            return "Mình đã cập nhật theo yêu cầu mới của bạn."
+        if action == ChatAction.GENERAL_QA:
+            return "I got your message. What should I refine next?"
+        return "I updated the output based on your latest request."
 
     @staticmethod
     def _classify_runtime_error_code(exc: Exception) -> int:
@@ -131,137 +150,94 @@ class ChatActionWorkflowService(BaseModel):
         logger.info("chat_action_stage_lifecycle", **log_payload)
 
     @staticmethod
-    def _stable_variant(seed: str, size: int) -> int:
-        if size <= 1:
-            return 0
-        return sum(ord(ch) for ch in seed) % size
+    def _prompt_requests_link(prompt: str) -> bool:
+        normalized = " ".join(prompt.strip().lower().split())
+        if not normalized:
+            return False
+        markers = [
+            "link",
+            "url",
+            "source",
+            "blog",
+            "nguon",
+            "duong dan",
+            "cuoi bai",
+        ]
+        return any(marker in normalized for marker in markers)
 
     @staticmethod
-    def _build_action_assistant_text(
+    def _inject_source_url_if_requested(
+        *,
+        prompt: str,
+        source_url: str,
+        post: SocialPost,
+    ) -> SocialPost:
+        if not source_url.strip():
+            return post
+        if not ChatActionWorkflowService._prompt_requests_link(prompt):
+            return post
+        merged_text = f"{post.hook}\n{post.body_content}\n{post.call_to_action}"
+        if source_url in merged_text:
+            return post
+        cta = post.call_to_action.strip()
+        updated_cta = f"{cta}\n{source_url}" if cta else source_url
+        return post.model_copy(update={"call_to_action": updated_cta})
+
+    @staticmethod
+    def _compose_action_assistant_reply(
         *,
         action: ChatAction,
+        prompt: str,
         target_language: TargetLanguage,
+        selected_model: str | None,
         affected_sections: list[str],
         platform: Platform | None = None,
         repair_applied: bool = False,
-        prompt: str | None = None,
+        context_summary: str = "",
     ) -> str:
         sections = ", ".join(affected_sections) if affected_sections else "snapshot"
-        seed = (
-            f"{action.value}|{platform.value if platform else ''}|{sections}|"
-            f"{prompt or ''}|{int(repair_applied)}"
+        language_name = "Vietnamese" if target_language == "vi" else "English"
+        prompt_raw = " ".join(prompt.strip().split())
+        prompt_normalized = ChatActionWorkflowService._normalize_prompt(prompt)
+        context_line = ChatActionWorkflowService._truncate_text(context_summary, 260)
+        platform_name = platform.value if platform is not None else "none"
+        guardrail_prompt = (
+            "You are an assistant that reports content-refinement outcomes naturally.\n"
+            f"Use exactly {language_name}.\n"
+            "Write 1-3 natural sentences.\n"
+            "Stay grounded in the provided operation result. Do not invent extra changes.\n"
+            "Do not output markdown symbols like '**' unless user asked for markdown.\n"
+            "Do not output internal field paths unless the user explicitly asks for technical details.\n"
+            "Avoid repetitive boilerplate. Keep wording conversational.\n"
+            "Only mention normalization if it was actually applied.\n"
+            f"Resolved action: {action.value}\n"
+            f"Resolved platform: {platform_name}\n"
+            f"Affected sections: {sections}\n"
+            f"Repair applied: {repair_applied}\n"
+            f"User prompt (raw): {prompt_raw}\n"
+            f"User prompt (normalized): {prompt_normalized}\n"
+            f"Change summary: {context_line or 'No material content delta summary available.'}\n"
+            "Return only the assistant reply text."
         )
-        repair_text_vi = (
-            "Mình đã tinh chỉnh nhẹ lần cuối để câu chữ và định dạng nhất quán hơn."
-            if repair_applied
-            else "Kết quả đã hợp lệ ngay từ lần chạy đầu tiên."
-        )
-        repair_text_en = (
-            "I applied one lightweight normalization pass to keep the output contract-safe."
-            if repair_applied
-            else "The output passed contract validation on the first pass."
-        )
-
-        if target_language == "vi":
-            if action == ChatAction.FULL_REGENERATE:
-                openings = [
-                    "Mình đã làm mới toàn bộ nội dung theo yêu cầu mới của bạn.",
-                    "Mình vừa tái tạo lại full pipeline để đồng bộ toàn bộ nội dung.",
-                    "Đã regenerate toàn bộ output để bám sát prompt mới của bạn.",
-                ]
-                opening = openings[
-                    ChatActionWorkflowService._stable_variant(seed, len(openings))
-                ]
-                return f"{opening} Phần cập nhật: {sections}. {repair_text_vi}"
-            if action == ChatAction.REANALYZE_ONLY:
-                openings = [
-                    "Mình đã phân tích lại theo đúng yêu cầu của bạn.",
-                    "Mình vừa chạy lại bước phân tích với prompt mới.",
-                    "Đã re-analyze xong phần phân tích theo hướng bạn muốn.",
-                ]
-                opening = openings[
-                    ChatActionWorkflowService._stable_variant(seed, len(openings))
-                ]
-                return (
-                    f"{opening} Mình chỉ cập nhật phần analysis, các social post đang giữ nguyên. "
-                    f"Phần thay đổi: {sections}. {repair_text_vi}"
-                )
-            if action == ChatAction.REWRITE_STRATEGY_ONLY:
-                openings = [
-                    "Mình đã cập nhật lại định hướng chiến lược.",
-                    "Mình vừa chỉnh lại phần strategy theo yêu cầu mới.",
-                    "Đã rewrite phần strategy để khớp mục tiêu bạn đưa ra.",
-                ]
-                opening = openings[
-                    ChatActionWorkflowService._stable_variant(seed, len(openings))
-                ]
-                return (
-                    f"{opening} Các bài social hiện tại vẫn được giữ nguyên. "
-                    f"Phần thay đổi: {sections}. {repair_text_vi}"
-                )
-            platform_name = platform.value if platform is not None else "social"
-            openings = [
-                f"Mình đã viết lại bài {platform_name} theo đúng ý bạn.",
-                f"Đã chỉnh lại bài {platform_name} theo prompt mới của bạn.",
-                f"Mình vừa rewrite bài {platform_name} theo hướng bạn yêu cầu.",
-            ]
-            opening = openings[
-                ChatActionWorkflowService._stable_variant(seed, len(openings))
-            ]
-            return (
-                f"{opening} Mình chỉ cập nhật đúng bài bạn chọn, các phần còn lại giữ nguyên. "
-                f"Phần thay đổi: {sections}. {repair_text_vi}"
+        try:
+            reply_text = stream_llm_text(
+                model_override=selected_model,
+                prompt=guardrail_prompt,
+            ).strip()
+            if not reply_text:
+                raise ValueError("Assistant reply composer returned empty text.")
+            return reply_text
+        except Exception as exc:
+            logger.warning(
+                "chat_action_assistant_reply_fallback",
+                action=action.value,
+                language_used=target_language,
+                error=redact_message(str(exc)),
             )
-
-        if action == ChatAction.FULL_REGENERATE:
-            openings = [
-                "I regenerated the full pipeline based on your latest prompt.",
-                "I refreshed the entire content output end-to-end.",
-                "I reran full generation to align all sections with your new direction.",
-            ]
-            opening = openings[
-                ChatActionWorkflowService._stable_variant(seed, len(openings))
-            ]
-            return f"{opening} Updated sections: {sections}. {repair_text_en}"
-        if action == ChatAction.REANALYZE_ONLY:
-            openings = [
-                "I re-analyzed the source content using your latest prompt.",
-                "I reran analysis based on your updated instruction.",
-                "I refreshed the analysis section according to your request.",
-            ]
-            opening = openings[
-                ChatActionWorkflowService._stable_variant(seed, len(openings))
-            ]
-            return (
-                f"{opening} Only analysis was updated; existing social posts remain unchanged. "
-                f"Updated section: {sections}. {repair_text_en}"
+            return ChatActionWorkflowService._fallback_assistant_reply(
+                target_language=target_language,
+                action=action,
             )
-        if action == ChatAction.REWRITE_STRATEGY_ONLY:
-            openings = [
-                "I updated the strategy direction based on your latest instruction.",
-                "I refined the strategy layer while keeping your current posts intact.",
-                "I rewrote the strategy section to match your requested angle.",
-            ]
-            opening = openings[
-                ChatActionWorkflowService._stable_variant(seed, len(openings))
-            ]
-            return (
-                f"{opening} Existing social posts were intentionally left unchanged. "
-                f"Updated section: {sections}. {repair_text_en}"
-            )
-        platform_name = platform.value if platform is not None else "social"
-        openings = [
-            f"I rewrote the {platform_name} post based on your latest prompt.",
-            f"I updated the {platform_name} post to match your instruction.",
-            f"I refined the {platform_name} draft according to your new direction.",
-        ]
-        opening = openings[
-            ChatActionWorkflowService._stable_variant(seed, len(openings))
-        ]
-        return (
-            f"{opening} Only the targeted post was changed; the rest of the snapshot stays untouched. "
-            f"Updated section: {sections}. {repair_text_en}"
-        )
 
     def _build_single_post_task(
         self,
@@ -275,6 +251,12 @@ class ChatActionWorkflowService(BaseModel):
     ) -> Task:
         char_limit = 2000 if platform == Platform.FACEBOOK else 3000
         language_name = "Vietnamese" if target_language == "vi" else "English"
+        supporting_claims_text = "; ".join(
+            [
+                f"{claim.claim} | evidence: {claim.evidence_excerpt}"
+                for claim in snapshot.analysis.supporting_claims
+            ]
+        )
         existing_text = (
             f"Hook: {existing_post.hook}\nBody: {existing_post.body_content}\n"
             f"CTA: {existing_post.call_to_action}\nHashtags: {', '.join(existing_post.hashtags)}"
@@ -285,6 +267,13 @@ class ChatActionWorkflowService(BaseModel):
             description=(
                 f"You must rewrite ONLY the '{platform.value}' post.\n"
                 f"User request: {prompt}\n"
+                "Hard requirements:\n"
+                "- Follow user request exactly; do not ignore requested constraints.\n"
+                "- Avoid generic intro-only writing. Deliver concrete value from source context.\n"
+                "- Body must cover: Agitation/Interest -> Solution/Value -> Proof.\n"
+                "- Include at least one concrete proof from supporting claims/evidence.\n"
+                "- Keep exactly one clear CTA.\n"
+                "- If user asks to include a link, include source_url at the end of CTA.\n"
                 f"Current analysis:\n"
                 f"- Core: {snapshot.analysis.core_message}\n"
                 f"- Value proposition: {snapshot.analysis.value_proposition}\n"
@@ -298,6 +287,8 @@ class ChatActionWorkflowService(BaseModel):
                 f"- Primary CTA: {snapshot.analysis.primary_cta}\n"
                 f"- CTA reasoning: {snapshot.analysis.cta_reasoning}\n"
                 f"- Risk flags: {', '.join(snapshot.analysis.risk_flags)}\n"
+                f"- Source URL: {snapshot.source_url}\n"
+                f"- Supporting claims with evidence: {supporting_claims_text}\n"
                 f"Current {platform.value} post:\n{existing_text}\n"
                 f"Character limit: {char_limit}\n"
                 f"Language requirement: return all text fields in {language_name}.\n"
@@ -349,12 +340,18 @@ class ChatActionWorkflowService(BaseModel):
             stage="chat_reanalyze_output",
         )
         affected_sections = ["analysis"]
-        assistant_text = self._build_action_assistant_text(
+        analysis_summary = (
+            f"Core message: {self._truncate_text(validated_analysis.core_message, 120)} | "
+            f"Audience: {self._truncate_text(validated_analysis.target_audience, 90)}"
+        )
+        assistant_text = self._compose_action_assistant_reply(
             action=ChatAction.REANALYZE_ONLY,
+            prompt=prompt,
             target_language=target_language,
+            selected_model=selected_model,
             affected_sections=affected_sections,
             repair_applied=repair_applied,
-            prompt=prompt,
+            context_summary=analysis_summary,
         )
         self._log_stage(
             status="completed",
@@ -426,6 +423,11 @@ class ChatActionWorkflowService(BaseModel):
         if not isinstance(rewritten, SocialPost):
             raise ValueError("Rewrite output must be SocialPost.")
         rewritten.platform = platform
+        rewritten = self._inject_source_url_if_requested(
+            prompt=prompt,
+            source_url=snapshot.source_url,
+            post=rewritten,
+        )
         gateway = AgentContractGateway()
         validated_post, repair_applied = gateway.validate_social_post(
             rewritten,
@@ -434,13 +436,21 @@ class ChatActionWorkflowService(BaseModel):
             expected_platform=platform,
         )
         affected_sections = [f"social_posts.{platform.value}"]
-        assistant_text = self._build_action_assistant_text(
+        old_hook = existing.hook if existing is not None else ""
+        change_summary = (
+            f"Hook before: {self._truncate_text(old_hook, 100)} | "
+            f"Hook after: {self._truncate_text(validated_post.hook, 100)} | "
+            f"CTA after: {self._truncate_text(validated_post.call_to_action, 100)}"
+        )
+        assistant_text = self._compose_action_assistant_reply(
             action=action,
+            prompt=prompt,
             target_language=target_language,
+            selected_model=selected_model,
             affected_sections=affected_sections,
             platform=platform,
             repair_applied=repair_applied,
-            prompt=prompt,
+            context_summary=change_summary,
         )
         self._log_stage(
             status="completed",
@@ -525,12 +535,21 @@ class ChatActionWorkflowService(BaseModel):
         ):
             raise ValueError(f"Strategy language mismatch. expected={target_language}.")
         affected_sections = ["meta.strategy"]
-        assistant_text = self._build_action_assistant_text(
+        previous_strategy = (
+            str(snapshot.meta.get("strategy", "")).strip() if snapshot.meta else ""
+        )
+        strategy_summary = (
+            f"Strategy before: {self._truncate_text(previous_strategy, 100)} | "
+            f"Strategy after: {self._truncate_text(strategy_text, 100)}"
+        )
+        assistant_text = self._compose_action_assistant_reply(
             action=ChatAction.REWRITE_STRATEGY_ONLY,
+            prompt=prompt,
             target_language=target_language,
+            selected_model=selected_model,
             affected_sections=affected_sections,
             repair_applied=False,
-            prompt=prompt,
+            context_summary=strategy_summary,
         )
         self._log_stage(
             status="completed",
@@ -573,7 +592,14 @@ class ChatActionWorkflowService(BaseModel):
             )
             return ChatActionWorkflowOutput(
                 status=True,
-                assistant_text=self._build_small_talk_reply(target_language),
+                assistant_text=self._compose_action_assistant_reply(
+                    action=ChatAction.GENERAL_QA,
+                    prompt=prompt,
+                    target_language=target_language,
+                    selected_model=selected_model,
+                    affected_sections=[],
+                    context_summary="No content update. Conversational greeting.",
+                ),
                 patch=SnapshotPatch(),
                 affected_sections=[],
                 metadata={"language_used": target_language},
@@ -755,12 +781,17 @@ class ChatActionWorkflowService(BaseModel):
                 affected_sections = ["analysis", "social_posts"]
                 return ChatActionWorkflowOutput(
                     status=True,
-                    assistant_text=self._build_action_assistant_text(
+                    assistant_text=self._compose_action_assistant_reply(
                         action=ChatAction.FULL_REGENERATE,
+                        prompt=prompt,
                         target_language=target_language,
+                        selected_model=selected_model,
                         affected_sections=affected_sections,
                         repair_applied=repair_applied,
-                        prompt=prompt,
+                        context_summary=(
+                            f"Regenerated full snapshot with {len(snapshot.social_posts)} social posts. "
+                            f"Core message: {self._truncate_text(snapshot.analysis.core_message, 120)}"
+                        ),
                     ),
                     patch=SnapshotPatch(full_snapshot=snapshot),
                     affected_sections=affected_sections,

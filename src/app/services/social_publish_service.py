@@ -432,6 +432,103 @@ class SocialPublishService(BaseModel):
             code=200,
         )
 
+    def schedule_facebook(
+        self,
+        *,
+        user_id: str,
+        content: str,
+        page_id: str,
+        scheduled_at: datetime,
+    ) -> SocialPublishServiceOutput:
+        credentials = self._resolve_facebook_page_token(
+            user_id=user_id, page_id=page_id
+        )
+        if isinstance(credentials, SocialPublishServiceOutput):
+            return credentials
+        page_token, _page = credentials
+        scheduled_at_utc = (
+            scheduled_at.replace(tzinfo=timezone.utc)
+            if scheduled_at.tzinfo is None
+            else scheduled_at.astimezone(timezone.utc)
+        )
+        scheduled_publish_time = int(scheduled_at_utc.timestamp())
+
+        url = f"https://graph.facebook.com/v19.0/{page_id.strip()}/feed"
+        try:
+            response = requests.post(
+                url,
+                data={
+                    "message": content,
+                    "published": "false",
+                    "scheduled_publish_time": str(scheduled_publish_time),
+                    "access_token": page_token,
+                },
+                timeout=self._timeout_seconds,
+            )
+        except requests.RequestException as exc:
+            logger.warning(
+                "facebook_schedule_network_error", error=redact_message(str(exc))
+            )
+            return SocialPublishServiceOutput(
+                status=False,
+                data=None,
+                error="Unable to reach Facebook API. Please try again.",
+                error_code="SOCIAL_PROVIDER_NETWORK_ERROR",
+                code=400,
+            )
+
+        payload = self._safe_json(response)
+        if response.status_code not in {200, 201}:
+            message = self._extract_error_message(
+                payload, f"Facebook schedule failed with status {response.status_code}."
+            )
+            error_obj = payload.get("error") if isinstance(payload, dict) else None
+            provider_error_code: int | None = None
+            if isinstance(error_obj, dict):
+                code_raw = error_obj.get("code")
+                if isinstance(code_raw, int):
+                    provider_error_code = code_raw
+                elif isinstance(code_raw, str) and code_raw.isdigit():
+                    provider_error_code = int(code_raw)
+            lowered = message.lower()
+            if provider_error_code == 190 or "oauth" in lowered or "token" in lowered:
+                return SocialPublishServiceOutput(
+                    status=False,
+                    data=None,
+                    error="Facebook token expired or revoked. Please reconnect your account.",
+                    error_code="SOCIAL_TOKEN_EXPIRED",
+                    code=401,
+                )
+            return SocialPublishServiceOutput(
+                status=False,
+                data=None,
+                error=message,
+                error_code="SOCIAL_PROVIDER_ERROR",
+                code=400,
+            )
+
+        provider_post_id = str(payload.get("id") or "").strip()
+        if not provider_post_id:
+            return SocialPublishServiceOutput(
+                status=False,
+                data=None,
+                error="Facebook did not return a post id.",
+                error_code="SOCIAL_PROVIDER_ERROR",
+                code=400,
+            )
+        return SocialPublishServiceOutput(
+            status=True,
+            data={
+                "platform": "facebook",
+                "provider_post_id": provider_post_id,
+                "provider_schedule_id": provider_post_id,
+                "view_url": self._build_facebook_view_url(provider_post_id),
+            },
+            error=None,
+            error_code=None,
+            code=200,
+        )
+
     def publish(self, inputs: SocialPublishInput) -> SocialPublishServiceOutput:
         try:
             platform = self._normalize_platform(inputs.platform)

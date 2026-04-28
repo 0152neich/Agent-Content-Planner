@@ -27,6 +27,13 @@ class ChatIntent(BaseModel):
     reason: str | None = None
 
 
+class IntentContext(BaseModel):
+    last_target_platform: str | None = None
+    last_action: str | None = None
+    last_language: str | None = None
+    updated_at: str | None = None
+
+
 class ChatRefinementInput(BaseModel):
     owner_user_id: str
     conversation_id: str
@@ -34,6 +41,7 @@ class ChatRefinementInput(BaseModel):
     selected_model: str | None = None
     source_url: str | None = None
     snapshot: dict[str, Any] | None = None
+    intent_context: IntentContext | None = None
     assistant_token_callback: Callable[[str], None] | None = None
 
 
@@ -43,5 +51,6 @@ class ChatRefinementOutput(BaseModel):
     intent: ChatIntent | None = None
     affected_sections: list[str] = Field(default_factory=list)
     content_plan_snapshot: dict[str, Any] | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
     code: int = 200

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from api.routers.auth import auth_router
+from api.routers.autopost import autopost_router
 from api.routers.conversation import conversation_router
 from api.routers.content import content_plan_router
 from api.routers.health import health_router
@@ -11,6 +12,7 @@ from api.routers.user import user_router
 
 __all__ = [
     "auth_router",
+    "autopost_router",
     "project_router",
     "conversation_router",
     "history_router",

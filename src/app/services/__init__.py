@@ -27,6 +27,7 @@ from .conversation_service import (
 from .chat_contracts import (
     ChatAction,
     ChatIntent,
+    IntentContext,
     ChatRefinementInput,
     ChatRefinementOutput,
 )
@@ -68,6 +69,16 @@ from .facebook_connection_service import (
     FacebookConnectionServiceOutput,
     FacebookOAuthCallbackInput,
 )
+from .autopost_service import (
+    AutopostService,
+    AutopostServiceOutput,
+    CancelAutopostJobInput,
+    CreateAutopostJobInput,
+    GetAutopostJobInput,
+    ListAutopostCalendarInput,
+    ListAutopostJobsInput,
+    RetryAutopostJobInput,
+)
 from .user_service import (
     CreateUserInput,
     DeleteUserInput,
@@ -84,6 +95,7 @@ __all__ = [
     "ConversationServiceOutput",
     "ChatAction",
     "ChatIntent",
+    "IntentContext",
     "ChatIntentRouter",
     "ChatRefinementInput",
     "ChatRefinementOutput",
@@ -127,6 +139,14 @@ __all__ = [
     "FacebookConnectionService",
     "FacebookConnectionServiceOutput",
     "FacebookOAuthCallbackInput",
+    "AutopostService",
+    "AutopostServiceOutput",
+    "CreateAutopostJobInput",
+    "ListAutopostJobsInput",
+    "GetAutopostJobInput",
+    "CancelAutopostJobInput",
+    "RetryAutopostJobInput",
+    "ListAutopostCalendarInput",
     "UpdateUserInput",
     "UpdateProjectInput",
     "UpdateConversationInput",

@@ -27,6 +27,7 @@ class User(Identified, Dated):
     full_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Status & role
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

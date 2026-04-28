@@ -47,6 +47,7 @@ class CreateUserInput(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     avatar_url: str | None = None
+    timezone: str | None = None
     is_active: bool = True
     email_verified: bool = False
     role: str = "user"
@@ -60,6 +61,7 @@ class UpdateUserInput(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     avatar_url: str | None = None
+    timezone: str | None = None
     is_active: bool | None = None
     email_verified: bool | None = None
     role: str | None = None
@@ -181,6 +183,7 @@ class UserService(BaseModel):
                     full_name=inputs.full_name,
                     phone=normalized_phone,
                     avatar_url=inputs.avatar_url,
+                    timezone=inputs.timezone,
                     is_active=inputs.is_active,
                     email_verified=inputs.email_verified,
                     role=inputs.role,
@@ -304,6 +307,9 @@ class UserService(BaseModel):
                     avatar_url=inputs.avatar_url
                     if inputs.avatar_url is not None
                     else existing.avatar_url,
+                    timezone=inputs.timezone
+                    if inputs.timezone is not None
+                    else existing.timezone,
                     is_active=inputs.is_active
                     if inputs.is_active is not None
                     else existing.is_active,

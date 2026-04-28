@@ -11,6 +11,14 @@ from .auth import ForgotPasswordVerifyOtpAPIOutput
 from .auth import LogoutAPIOutput
 from .auth import MeAPIOutput
 from .auth import RefreshAPIOutput
+from .autopost import (
+    AutopostCalendarAPIOutput,
+    AutopostJobActionAPIOutput,
+    AutopostJobAPIOutput,
+    AutopostJobCreateAPIInput,
+    AutopostJobCreateAPIOutput,
+    AutopostJobListAPIOutput,
+)
 from .content import ContentPlanAPIInput
 from .content import ContentPlanAPIOutput
 from .conversation import (
@@ -62,6 +70,12 @@ from .user import (
 __all__ = [
     "LoginAPIInput",
     "LoginAPIOutput",
+    "AutopostJobCreateAPIInput",
+    "AutopostJobCreateAPIOutput",
+    "AutopostJobAPIOutput",
+    "AutopostJobListAPIOutput",
+    "AutopostJobActionAPIOutput",
+    "AutopostCalendarAPIOutput",
     "ForgotPasswordSendOtpAPIInput",
     "ForgotPasswordSendOtpAPIOutput",
     "ForgotPasswordVerifyOtpAPIInput",

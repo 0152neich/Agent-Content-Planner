@@ -343,11 +343,10 @@ class RunSnapshotRestoreAPIInput(BaseModel):
             "analysis",
             "linkedin",
             "facebook",
-            "twitter",
         }
         if normalized not in allowed_targets:
             raise ValueError(
-                "Unsupported restore target. Allowed: full_snapshot, analysis, linkedin, facebook, twitter."
+                "Unsupported restore target. Allowed: full_snapshot, analysis, linkedin, facebook."
             )
         return normalized
 

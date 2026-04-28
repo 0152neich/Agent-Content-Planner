@@ -6,6 +6,14 @@ volumes:
   postgres_data:
 
 services:
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    networks:
+      - app-tier
+
   postgres:
     image: postgres:17.0-alpine
     restart: always
@@ -47,6 +55,58 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-tier
+
+  worker:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && celery -A app.autopost_celery.celery_app worker --loglevel=INFO"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: postgres
+      POSTGRES__PORT: 5432
+      CELERY__BROKER_URL: redis://redis:6379/0
+      CELERY__RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-tier
+
+  beat:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && celery -A app.autopost_celery.celery_app beat --loglevel=INFO"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: postgres
+      POSTGRES__PORT: 5432
+      CELERY__BROKER_URL: redis://redis:6379/0
+      CELERY__RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+    depends_on:
+      redis:
+        condition: service_started
+      worker:
+        condition: service_started
     networks:
       - app-tier
 

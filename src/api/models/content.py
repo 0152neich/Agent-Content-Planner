@@ -61,7 +61,9 @@ class ContentPlanAPIInput(BaseModel):
         has_project = bool(self.project_id)
         has_conversation = bool(self.conversation_id)
         if has_project != has_conversation:
-            raise ValueError("project_id and conversation_id must be provided together.")
+            raise ValueError(
+                "project_id and conversation_id must be provided together."
+            )
         return self
 
 

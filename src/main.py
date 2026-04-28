@@ -17,6 +17,7 @@ from api.helpers.exception_handler import (
     to_validation_error_message,
 )
 from api.routers import (
+    autopost_router,
     auth_router,
     content_plan_router,
     conversation_router,
@@ -154,6 +155,7 @@ app.include_router(content_plan_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(project_router, prefix="/api/v1")
+app.include_router(autopost_router, prefix="/api/v1")
 app.include_router(conversation_router, prefix="/api/v1")
 app.include_router(history_router, prefix="/api/v1")
 app.include_router(social_publish_router, prefix="/api/v1")

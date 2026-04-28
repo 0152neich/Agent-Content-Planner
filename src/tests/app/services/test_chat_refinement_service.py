@@ -6,6 +6,7 @@ from unittest.mock import patch
 from app.services.chat_contracts import (
     ChatAction,
     ChatIntent,
+    IntentContext,
     ChatRefinementInput,
 )
 from app.services.chat_refinement_service import ChatRefinementService
@@ -158,6 +159,7 @@ def test_process_applies_rewrite_patch_to_existing_snapshot(
 
     assert result.status is True
     assert "social_posts.linkedin" in result.affected_sections
+    assert result.content_plan_snapshot is not None
     social_posts = result.content_plan_snapshot["social_posts"]
     linkedin_post = next(
         post for post in social_posts if post["platform"] == "linkedin"
@@ -253,3 +255,52 @@ def test_process_uses_cache_for_identical_successful_requests() -> None:
     assert second.status is True
     assert routed.call_count == 1
     assert processed.call_count == 1
+
+
+def test_process_passes_intent_context_to_router_and_exposes_workflow_metadata() -> (
+    None
+):
+    service = ChatRefinementService()
+    context = IntentContext(
+        last_target_platform="linkedin",
+        last_action=ChatAction.REWRITE_LINKEDIN_ONLY.value,
+        last_language="en",
+    )
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatIntentRouter.route",
+            return_value=ChatIntent(
+                action=ChatAction.GENERAL_QA,
+                normalized_prompt="add stronger opening",
+                confidence=0.7,
+            ),
+        ) as routed,
+        patch(
+            "app.services.chat_refinement_service.ChatActionWorkflowService.process",
+            return_value=ChatActionWorkflowOutput(
+                status=True,
+                assistant_text="updated",
+                patch=SnapshotPatch(),
+                affected_sections=[],
+                metadata={"language_used": "en"},
+                code=200,
+            ),
+        ),
+    ):
+        result = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="add stronger opening",
+                source_url="https://example.com",
+                intent_context=context,
+            )
+        )
+
+    assert result.status is True
+    assert result.metadata.get("language_used") == "en"
+    assert routed.call_args.kwargs["intent_context"] == context

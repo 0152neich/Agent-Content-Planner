@@ -36,6 +36,7 @@ class User(DatabaseSchema):
     full_name: str | None = None
     phone: str | None = Field(None, max_length=32)
     avatar_url: str | None = Field(None, max_length=512)
+    timezone: str | None = Field(None, max_length=64)
 
     # Status & role
     is_active: bool = True
@@ -124,3 +125,22 @@ class ConversationRun(DatabaseSchema):
     finished_at: datetime | None = None
     source_url: str | None = Field(None, max_length=1024)
     platforms: list[str] = Field(default_factory=list)
+
+
+class AutopostJob(DatabaseSchema):
+    project_id: str = Field(..., min_length=1, max_length=64)
+    user_id: str = Field(..., min_length=1, max_length=64)
+    platform: str = Field(..., min_length=1, max_length=32)
+    keyword: str = Field(..., min_length=1)
+    timezone: str = Field(default="UTC", min_length=1, max_length=64)
+    scheduled_at: datetime
+    status: str = Field(default="QUEUED", max_length=32)
+    page_id: str | None = Field(None, max_length=128)
+    draft_content: str | None = None
+    final_content: str | None = None
+    provider_post_id: str | None = Field(None, max_length=255)
+    provider_schedule_id: str | None = Field(None, max_length=255)
+    error_code: str | None = Field(None, max_length=64)
+    error_message: str | None = None
+    retry_count: int = Field(default=0, ge=0)
+    conversation_run_id: str | None = Field(None, max_length=64)

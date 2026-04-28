@@ -13,6 +13,7 @@ from app.services.chat_contracts import (
     ChatAction,
     ChatRefinementInput,
     ChatRefinementOutput,
+    IntentContext,
 )
 from app.services.chat_intent_router import ChatIntentRouter
 from app.workflows.chat_action_workflow import (
@@ -67,13 +68,20 @@ class ChatRefinementService(BaseModel):
         conversation_id: str,
         prompt: str,
         selected_model: str | None,
+        intent_context: IntentContext | None,
     ) -> str:
+        context_payload = (
+            intent_context.model_dump(mode="json") if intent_context is not None else {}
+        )
         payload = "|".join(
             [
                 owner_user_id,
                 conversation_id,
                 cls._normalize_text(prompt),
                 cls._normalize_text(selected_model),
+                cls._normalize_text(str(context_payload.get("last_target_platform"))),
+                cls._normalize_text(str(context_payload.get("last_action"))),
+                cls._normalize_text(str(context_payload.get("last_language"))),
             ]
         )
         return sha256(payload.encode("utf-8")).hexdigest()
@@ -160,6 +168,7 @@ class ChatRefinementService(BaseModel):
             conversation_id=inputs.conversation_id,
             prompt=inputs.prompt,
             selected_model=inputs.selected_model,
+            intent_context=inputs.intent_context,
         )
         cached = self._get_cached_result(request_key=request_key)
         if cached is not None:
@@ -211,6 +220,7 @@ class ChatRefinementService(BaseModel):
             intent = self._intent_router.route(
                 prompt=inputs.prompt,
                 snapshot=inputs.snapshot,
+                intent_context=inputs.intent_context,
             )
 
             if (
@@ -321,6 +331,7 @@ class ChatRefinementService(BaseModel):
                     if next_snapshot is not None
                     else None
                 ),
+                metadata=dict(workflow_result.metadata or {}),
                 error=None,
                 code=200,
             )

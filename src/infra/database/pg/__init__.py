@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .db import SQLDatabase
 from .repositories import (
+    AutopostJobRepository,
     ConversationMessageRepository,
     ConversationRepository,
     ConversationRunRepository,
@@ -15,6 +16,7 @@ from .repositories import (
     UserIdentityRepository,
 )
 from .schemas import (
+    AutopostJob,
     Conversation,
     ConversationMessage,
     ConversationRun,
@@ -28,6 +30,7 @@ from .schemas import (
 
 __all__ = [
     "SQLDatabase",
+    "AutopostJobRepository",
     "ProjectRepository",
     "ConversationRepository",
     "ConversationMessageRepository",
@@ -37,6 +40,7 @@ __all__ = [
     "SocialConnectionRepository",
     "UserRepository",
     "UserIdentityRepository",
+    "AutopostJob",
     "Project",
     "Conversation",
     "ConversationMessage",

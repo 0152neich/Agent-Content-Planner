@@ -6,7 +6,7 @@ from typing import Any
 
 from api.helpers.exception_handler import to_user_error_message
 from app.services.chat_refinement_service import ChatRefinementService
-from app.services.chat_contracts import ChatRefinementInput
+from app.services.chat_contracts import ChatRefinementInput, IntentContext
 from infra.database.pg import SQLDatabase
 from infra.database.pg.schemas import (
     Conversation,
@@ -176,17 +176,14 @@ class ConversationService(BaseModel):
     @staticmethod
     def _normalize_restore_target(target: str | None) -> str:
         normalized = (target or "").strip().lower()
-        allowed = {"full_snapshot", "analysis", "linkedin", "facebook", "twitter"}
+        allowed = {"full_snapshot", "analysis", "linkedin", "facebook"}
         if normalized not in allowed:
             return "full_snapshot"
         return normalized
 
     @staticmethod
     def _normalize_platform(platform: str) -> str:
-        lowered = platform.strip().lower()
-        if lowered in {"x", "twitter (x)"}:
-            return "twitter"
-        return lowered
+        return platform.strip().lower()
 
     @staticmethod
     def _sanitize_refinement_error(error: str | None, code: int) -> str:
@@ -296,6 +293,74 @@ class ConversationService(BaseModel):
             snapshot = payload.get("content_plan_snapshot")
             if isinstance(snapshot, dict):
                 return snapshot
+        return None
+
+    @staticmethod
+    def _extract_intent_context_from_payload(
+        payload: dict[str, Any] | None,
+        *,
+        updated_at: datetime | None = None,
+    ) -> IntentContext | None:
+        data = dict(payload or {})
+        raw_intent = data.get("intent")
+        intent = raw_intent if isinstance(raw_intent, dict) else {}
+
+        last_target_platform = intent.get("target_platform")
+        if (
+            not isinstance(last_target_platform, str)
+            or not last_target_platform.strip()
+        ):
+            last_target_platform = None
+        else:
+            last_target_platform = last_target_platform.strip().lower()
+
+        last_action = data.get("action") or intent.get("action")
+        if not isinstance(last_action, str) or not last_action.strip():
+            last_action = None
+        else:
+            last_action = last_action.strip().upper()
+
+        last_language = data.get("language_used")
+        if not isinstance(last_language, str) or not last_language.strip():
+            last_language = None
+        else:
+            last_language = last_language.strip().lower()
+
+        if not (last_target_platform or last_action or last_language):
+            return None
+
+        return IntentContext(
+            last_target_platform=last_target_platform,
+            last_action=last_action,
+            last_language=last_language,
+            updated_at=(
+                ConversationService._ensure_utc(updated_at).isoformat()
+                if updated_at is not None
+                else None
+            ),
+        )
+
+    def _resolve_latest_intent_context(
+        self,
+        *,
+        session,
+        conversation_id: str,
+    ) -> IntentContext | None:
+        runs = (
+            self._db.get_conversation_runs(
+                session=session,
+                filter={"conversation_id": conversation_id},
+            )
+            or []
+        )
+        ordered_runs = sorted(runs, key=self._run_sort_key, reverse=True)
+        for run in ordered_runs:
+            context = self._extract_intent_context_from_payload(
+                dict(run.request_payload or {}),
+                updated_at=run.finished_at or run.started_at,
+            )
+            if context is not None:
+                return context
         return None
 
     def _normalize_project_single_conversation(
@@ -744,6 +809,10 @@ class ConversationService(BaseModel):
                     project_id=project.id or "",
                     conversation_id=conversation.id or "",
                 )
+                latest_intent_context = self._resolve_latest_intent_context(
+                    session=session,
+                    conversation_id=conversation.id or "",
+                )
                 run = self._db.insert_conversation_run(
                     session=session,
                     model=ConversationRun(
@@ -771,6 +840,7 @@ class ConversationService(BaseModel):
                         selected_model=model_name,
                         source_url=source_url,
                         snapshot=latest_snapshot,
+                        intent_context=latest_intent_context,
                         assistant_token_callback=inputs.assistant_token_callback,
                     )
                 )
@@ -817,6 +887,11 @@ class ConversationService(BaseModel):
                     "content": prompt,
                     "selected_model": model_name,
                     "source_url": source_url,
+                    "intent_context": (
+                        latest_intent_context.model_dump(mode="json")
+                        if latest_intent_context is not None
+                        else None
+                    ),
                     "intent": (
                         refinement_result.intent.model_dump(mode="json")
                         if refinement_result.intent is not None
@@ -825,6 +900,11 @@ class ConversationService(BaseModel):
                     "action": (
                         refinement_result.intent.action.value
                         if refinement_result.intent is not None
+                        else None
+                    ),
+                    "language_used": (
+                        refinement_result.metadata.get("language_used")
+                        if isinstance(refinement_result.metadata, dict)
                         else None
                     ),
                 }
@@ -1252,7 +1332,7 @@ class ConversationService(BaseModel):
                                 ["analysis"]
                                 if target == "analysis"
                                 else [f"social_posts.{target}"]
-                                if target in {"linkedin", "facebook", "twitter"}
+                                if target in {"linkedin", "facebook"}
                                 else ["analysis", "social_posts"]
                             ),
                         },

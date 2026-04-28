@@ -12,35 +12,95 @@ from app.workflows.chat_action_workflow import (
 )
 from app.workflows.chat_snapshot import ContentPlanSnapshot
 from app.workflows.content_pipeline import ContentPlanningOutput, ContentPlanningService
-from domain.models.models import ContentPlanOutput, DraftAnalysis, SocialPostsBundle
+from domain.models.models import (
+    ContentPlanOutput,
+    DraftAnalysis,
+    Platform,
+    SocialPost,
+    SocialPostsBundle,
+)
 
 
 def _mock_settings() -> SimpleNamespace:
     return SimpleNamespace(crew=SimpleNamespace(verbose=False))
 
 
-def test_build_action_assistant_text_vi_is_readable() -> None:
-    text = ChatActionWorkflowService._build_action_assistant_text(
-        action=ChatAction.FULL_REGENERATE,
-        target_language="vi",
-        affected_sections=["analysis", "social_posts"],
-    )
-
-    assert any(
-        phrase in text
-        for phrase in (
-            "Mình đã làm mới toàn bộ nội dung",
-            "Mình vừa tái tạo lại full pipeline",
-            "Đã regenerate toàn bộ output",
-        )
-    )
-    assert "MÃ" not in text
-
-
-def test_process_general_qa_small_talk_returns_short_friendly_reply() -> None:
-    service = ChatActionWorkflowService()
+def test_compose_action_assistant_reply_returns_llm_output_with_guardrails() -> None:
     with patch(
-        "app.workflows.chat_action_workflow.Settings", return_value=_mock_settings()
+        "app.workflows.chat_action_workflow.stream_llm_text",
+        return_value="Mình đã cập nhật đúng theo yêu cầu của bạn.",
+    ) as stream_reply:
+        text = ChatActionWorkflowService._compose_action_assistant_reply(
+            action=ChatAction.FULL_REGENERATE,
+            prompt="Làm mới toàn bộ theo hướng chuyên gia",
+            target_language="vi",
+            selected_model="gpt-4o-mini",
+            affected_sections=["analysis", "social_posts"],
+            context_summary="Regenerated full snapshot with 2 social posts.",
+        )
+
+    assert text == "Mình đã cập nhật đúng theo yêu cầu của bạn."
+    stream_prompt = stream_reply.call_args.kwargs["prompt"]
+    assert "Resolved action: FULL_REGENERATE" in stream_prompt
+    assert "User prompt (raw): Làm mới toàn bộ theo hướng chuyên gia" in stream_prompt
+    assert "Use exactly Vietnamese." in stream_prompt
+
+
+def test_compose_action_assistant_reply_falls_back_when_llm_fails() -> None:
+    with patch(
+        "app.workflows.chat_action_workflow.stream_llm_text",
+        side_effect=RuntimeError("upstream timeout"),
+    ):
+        text = ChatActionWorkflowService._compose_action_assistant_reply(
+            action=ChatAction.REWRITE_LINKEDIN_ONLY,
+            prompt="thêm phần dẫn dắt",
+            target_language="vi",
+            selected_model=None,
+            affected_sections=["social_posts.linkedin"],
+            platform=Platform.LINKEDIN,
+            context_summary="Hook after: ...",
+        )
+
+    assert text
+    assert "Mình đã cập nhật" in text
+
+
+def test_process_general_qa_small_talk_uses_composer() -> None:
+    service = ChatActionWorkflowService()
+    with (
+        patch(
+            "app.workflows.chat_action_workflow.Settings", return_value=_mock_settings()
+        ),
+        patch.object(
+            ChatActionWorkflowService,
+            "_compose_action_assistant_reply",
+            return_value="Hi there, what would you like to refine next?",
+        ) as compose_reply,
+    ):
+        result = service.process(
+            ChatActionWorkflowInput(
+                action=ChatAction.GENERAL_QA,
+                prompt="hello",
+                owner_user_id="user-1",
+            )
+        )
+
+    assert result.status is True
+    assert "refine next" in result.assistant_text
+    assert compose_reply.call_args.kwargs["action"] == ChatAction.GENERAL_QA
+
+
+def test_process_general_qa_small_talk_follows_prompt_language_vi() -> None:
+    service = ChatActionWorkflowService()
+    with (
+        patch(
+            "app.workflows.chat_action_workflow.Settings", return_value=_mock_settings()
+        ),
+        patch.object(
+            ChatActionWorkflowService,
+            "_compose_action_assistant_reply",
+            side_effect=lambda **kwargs: f"lang={kwargs['target_language']}",
+        ),
     ):
         result = service.process(
             ChatActionWorkflowInput(
@@ -51,7 +111,31 @@ def test_process_general_qa_small_talk_returns_short_friendly_reply() -> None:
         )
 
     assert result.status is True
-    assert "Chào bạn" in result.assistant_text
+    assert result.assistant_text == "lang=vi"
+
+
+def test_process_general_qa_small_talk_follows_prompt_language_en() -> None:
+    service = ChatActionWorkflowService()
+    with (
+        patch(
+            "app.workflows.chat_action_workflow.Settings", return_value=_mock_settings()
+        ),
+        patch.object(
+            ChatActionWorkflowService,
+            "_compose_action_assistant_reply",
+            side_effect=lambda **kwargs: f"lang={kwargs['target_language']}",
+        ),
+    ):
+        result = service.process(
+            ChatActionWorkflowInput(
+                action=ChatAction.GENERAL_QA,
+                prompt="hello",
+                owner_user_id="user-1",
+            )
+        )
+
+    assert result.status is True
+    assert result.assistant_text == "lang=en"
 
 
 def test_process_full_regenerate_requires_source_url() -> None:
@@ -94,6 +178,11 @@ def test_process_full_regenerate_success_returns_full_snapshot(
                 status=True, data=content_plan, code=200
             ),
         ),
+        patch.object(
+            ChatActionWorkflowService,
+            "_compose_action_assistant_reply",
+            return_value="Natural reply",
+        ) as compose_reply,
     ):
         result = service.process(
             ChatActionWorkflowInput(
@@ -106,8 +195,11 @@ def test_process_full_regenerate_success_returns_full_snapshot(
 
     assert result.status is True
     assert result.code == 200
+    assert result.assistant_text == "Natural reply"
     assert result.patch.full_snapshot is not None
     assert result.affected_sections == ["analysis", "social_posts"]
+    assert compose_reply.call_args.kwargs["action"] == ChatAction.FULL_REGENERATE
+    assert compose_reply.call_args.kwargs["prompt"] == "regenerate all"
 
 
 def test_process_full_regenerate_returns_500_when_output_schema_is_invalid() -> None:
@@ -302,3 +394,41 @@ def test_process_general_qa_dispatches_without_snapshot(
     assert result.status is True
     assert result.assistant_text == "ok"
     run_general_qa.assert_called_once()
+
+
+def test_inject_source_url_if_requested_appends_url_when_missing() -> None:
+    service = ChatActionWorkflowService()
+    post = SocialPost(
+        platform=Platform.LINKEDIN,
+        hook="Hook",
+        body_content="Body",
+        call_to_action="Comment your pain point.",
+        hashtags=["ai", "content", "linkedin"],
+    )
+
+    updated = service._inject_source_url_if_requested(
+        prompt="viet bai linkedin va cuoi bai co dinh kem link blog",
+        source_url="https://example.com/blog",
+        post=post,
+    )
+
+    assert updated.call_to_action.endswith("https://example.com/blog")
+
+
+def test_inject_source_url_if_requested_keeps_post_when_no_link_request() -> None:
+    service = ChatActionWorkflowService()
+    post = SocialPost(
+        platform=Platform.LINKEDIN,
+        hook="Hook",
+        body_content="Body",
+        call_to_action="Comment your pain point.",
+        hashtags=["ai", "content", "linkedin"],
+    )
+
+    updated = service._inject_source_url_if_requested(
+        prompt="viet lai bai linkedin chuyen nghiep hon",
+        source_url="https://example.com/blog",
+        post=post,
+    )
+
+    assert updated.call_to_action == post.call_to_action

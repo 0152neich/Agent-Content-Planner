@@ -5,6 +5,7 @@ from __future__ import annotations
 from .base import Base
 from .base import Dated
 from .base import Identified
+from .autopost_job import AutopostJob
 from .conversation import Conversation
 from .conversation_message import ConversationMessage
 from .conversation_run import ConversationRun
@@ -19,6 +20,7 @@ __all__ = [
     "Base",
     "Dated",
     "Identified",
+    "AutopostJob",
     "Project",
     "Conversation",
     "ConversationMessage",

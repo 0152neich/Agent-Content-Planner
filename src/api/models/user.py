@@ -15,6 +15,7 @@ class UserAPIData(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     avatar_url: str | None = None
+    timezone: str | None = None
     is_active: bool
     email_verified: bool
     role: str
@@ -30,6 +31,7 @@ class UserAPIData(BaseModel):
             full_name=user.full_name,
             phone=user.phone,
             avatar_url=user.avatar_url,
+            timezone=user.timezone,
             is_active=user.is_active,
             email_verified=user.email_verified,
             role=user.role,
@@ -45,6 +47,7 @@ class UserCreateAPIInput(BaseModel):
     full_name: str | None = Field(None, max_length=128)
     phone: str | None = Field(None, max_length=32)
     avatar_url: str | None = Field(None, max_length=512)
+    timezone: str | None = Field(None, max_length=64)
     is_active: bool = True
     email_verified: bool = False
     role: str = Field(default="user", max_length=32)
@@ -57,6 +60,7 @@ class UserUpdateAPIInput(BaseModel):
     full_name: str | None = Field(None, max_length=128)
     phone: str | None = Field(None, max_length=32)
     avatar_url: str | None = Field(None, max_length=512)
+    timezone: str | None = Field(None, max_length=64)
     is_active: bool | None = None
     email_verified: bool | None = None
     role: str | None = Field(None, max_length=32)
@@ -72,6 +76,7 @@ class UserUpdateAPIInput(BaseModel):
                 self.full_name,
                 self.phone,
                 self.avatar_url,
+                self.timezone,
                 self.is_active,
                 self.email_verified,
                 self.role,
