@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tab, Tabs, useTheme } from '@mui/material';
-import { BarChart3, BriefcaseBusiness, Facebook, Twitter } from 'lucide-react';
+import { BarChart3, BriefcaseBusiness, Facebook } from 'lucide-react';
 
 type ResultTabsShellProps = {
   activeTab: number;
@@ -11,7 +11,6 @@ const tabItems = [
   { id: 0, label: 'Core Analysis', icon: <BarChart3 size={16} /> },
   { id: 1, label: 'LinkedIn Post', icon: <BriefcaseBusiness size={16} /> },
   { id: 2, label: 'Facebook Post', icon: <Facebook size={16} /> },
-  { id: 3, label: 'Twitter Thread', icon: <Twitter size={16} /> },
 ];
 
 export const ResultTabsShell: React.FC<ResultTabsShellProps> = ({ activeTab, onChangeTab }) => {

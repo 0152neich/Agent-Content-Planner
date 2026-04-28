@@ -38,6 +38,7 @@ import {
   extractContentPlanFromRun,
   parseContentPlanSnapshot,
 } from '../historyUtils';
+import { buildSocialPostText } from '../socialTextUtils';
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const INITIAL_ANALYSIS_PROMPT =
@@ -71,15 +72,8 @@ export const MODEL_OPTIONS = [
 const normalizeText = (value: string): string =>
   value.trim().replace(/\s+/g, ' ').toLowerCase();
 
-const normalizePlatformPost = (post: ContentSocialPost): string => {
-  const sections = [post.hook, post.body_content, post.call_to_action]
-    .map((section) => section.trim())
-    .filter(Boolean);
-  if (post.hashtags.length) {
-    sections.push(post.hashtags.join(' '));
-  }
-  return sections.join('\n\n');
-};
+const normalizePlatformPost = (post: ContentSocialPost): string =>
+  buildSocialPostText(post);
 
 const matchPlatform = (post: ContentSocialPost, aliases: string[]): boolean =>
   aliases.includes(post.platform.toLowerCase().trim());
@@ -147,11 +141,9 @@ const toCampaignResult = (
     analysis: contentPlan.analysis,
     linkedin: findPostText(posts, ['linkedin']),
     facebook: findPostText(posts, ['facebook']),
-    twitter: findPostText(posts, ['twitter', 'x', 'twitter (x)']),
     posts: {
       linkedin: findPost(posts, ['linkedin']),
       facebook: findPost(posts, ['facebook']),
-      twitter: findPost(posts, ['twitter', 'x', 'twitter (x)']),
     },
     meta: {
       source_url: contentPlan.source_url,
@@ -215,7 +207,7 @@ type WorkspaceState = {
   refreshHistory: () => Promise<void>;
   restoreFromRun: (
     runId: string,
-    target: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook' | 'twitter',
+    target: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook',
   ) => Promise<void>;
   publishSocialPost: (
     platform: SocialPublishPlatform,
@@ -692,7 +684,7 @@ export const useCampaignWorkspaceState = (): WorkspaceState => {
   const restoreFromRun = useCallback(
     async (
       runId: string,
-      target: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook' | 'twitter',
+      target: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook',
     ): Promise<void> => {
       const accessToken = await ensureAuthenticatedAccessToken();
       if (!accessToken) {

@@ -15,6 +15,8 @@ import type {
   RunItem,
   SocialPublishPlatform,
   SocialPublishResult,
+  AutopostJobItem,
+  AutopostPlatform,
 } from '../types';
 
 export const getHealthApi = async (): Promise<{ status: string }> =>
@@ -366,7 +368,7 @@ export const saveRunSnapshotApi = async (
 export const restoreRunSnapshotApi = async (
   accessToken: string,
   runId: string,
-  target: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook' | 'twitter',
+  target: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook',
 ): Promise<{ restored_run: RunItem; content_plan_snapshot: Record<string, unknown> }> =>
   requestEnvelope<{ restored_run: RunItem; content_plan_snapshot: Record<string, unknown> }>(
     `/runs/${runId}/restore`,
@@ -430,6 +432,72 @@ export const getFacebookPagesApi = async (
   accessToken: string,
 ): Promise<FacebookPageOption[]> =>
   requestEnvelope<FacebookPageOption[]>('/social/facebook/pages', {
+    headers: withAuthHeaders(accessToken),
+    credentials: 'include',
+  });
+
+export const createAutopostJobApi = async (
+  accessToken: string,
+  payload: {
+    project_id: string;
+    platform: AutopostPlatform;
+    keyword: string;
+    scheduled_at: string;
+    publish_mode?: 'now' | 'schedule';
+    page_id?: string;
+  },
+): Promise<{ id: string; status: string }> =>
+  requestEnvelope<{ id: string; status: string }>('/autopost/jobs', {
+    method: 'POST',
+    headers: withAuthHeaders(accessToken),
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+
+export const listAutopostJobsApi = async (
+  accessToken: string,
+  projectId: string,
+  status?: string,
+): Promise<AutopostJobItem[]> => {
+  const params = new URLSearchParams({ project_id: projectId });
+  if (status) params.set('status', status);
+  return requestEnvelope<{ jobs: AutopostJobItem[] }>(
+    `/autopost/jobs?${params.toString()}`,
+    {
+      headers: withAuthHeaders(accessToken),
+      credentials: 'include',
+    },
+  ).then((data) => data.jobs);
+};
+
+export const getAutopostCalendarApi = async (
+  accessToken: string,
+  projectId: string,
+): Promise<AutopostJobItem[]> =>
+  requestEnvelope<{ jobs: AutopostJobItem[] }>(
+    `/autopost/calendar?project_id=${encodeURIComponent(projectId)}`,
+    {
+      headers: withAuthHeaders(accessToken),
+      credentials: 'include',
+    },
+  ).then((data) => data.jobs);
+
+export const retryAutopostJobApi = async (
+  accessToken: string,
+  jobId: string,
+): Promise<{ id: string; status: string }> =>
+  requestEnvelope<{ id: string; status: string }>(`/autopost/jobs/${jobId}/retry`, {
+    method: 'POST',
+    headers: withAuthHeaders(accessToken),
+    credentials: 'include',
+  });
+
+export const cancelAutopostJobApi = async (
+  accessToken: string,
+  jobId: string,
+): Promise<{ id: string; status: string }> =>
+  requestEnvelope<{ id: string; status: string }>(`/autopost/jobs/${jobId}/cancel`, {
+    method: 'POST',
     headers: withAuthHeaders(accessToken),
     credentials: 'include',
   });

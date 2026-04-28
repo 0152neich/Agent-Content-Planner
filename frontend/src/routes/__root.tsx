@@ -14,7 +14,8 @@ export const Route = createRootRoute({
       location.pathname === '/register' ||
       location.pathname === '/forgot-password' ||
       location.pathname === '/reset-password' ||
-      location.pathname === '/workspace';
+      location.pathname === '/workspace' ||
+      location.pathname === '/autopost';
 
     if (isStandalone) {
       return (

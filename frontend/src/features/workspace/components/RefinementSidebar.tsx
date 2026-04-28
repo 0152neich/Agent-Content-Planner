@@ -112,8 +112,6 @@ export const RefinementSidebar: React.FC<RefinementSidebarProps> = ({
         position: 'sticky',
         bottom: 0,
         zIndex: 3,
-        borderTop: '1px solid',
-        borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e3ebf4',
         bgcolor: isDark ? 'rgba(17,20,24,0.82)' : 'rgba(247,250,252,0.84)',
         backdropFilter: 'blur(10px)',
       }}

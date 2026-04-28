@@ -23,7 +23,6 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import { ExternalLink, History, Rocket, RotateCcw } from 'lucide-react';
 import { useSnackbar } from '@/components/AppLayout';
 import type {
@@ -36,11 +35,11 @@ import type {
   SocialPublishResult,
 } from '../types';
 import { buildSnapshotDiff, extractContentPlanFromRun } from '../historyUtils';
+import { buildSocialPostText, normalizeHashtags, normalizeSocialText } from '../socialTextUtils';
 import { CopyButton } from './CopyButton';
 import { ResultTabsShell } from './ResultTabsShell';
 import { SocialCardFacebook } from './SocialCardFacebook';
 import { SocialCardLinkedIn } from './SocialCardLinkedIn';
-import { SocialCardTwitter } from './SocialCardTwitter';
 
 type ResultWorkspacePanelProps = {
   campaignResult: CampaignResult | null;
@@ -53,7 +52,7 @@ type ResultWorkspacePanelProps = {
   restoringRunId: string | null;
   onRestoreRun: (
     runId: string,
-    target: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook' | 'twitter',
+    target: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook',
   ) => Promise<void>;
   onPublishSocialPost: (
     platform: SocialPublishPlatform,
@@ -122,38 +121,36 @@ const analysisToMarkdown = (result: CampaignResult): string =>
 
 const socialToMarkdown = (post: ContentSocialPost | null): string => {
   if (!post) return '';
+  const hashtags = normalizeHashtags(post.hashtags);
   return [
     '## Hook',
-    post.hook,
+    normalizeSocialText(post.hook),
     '',
     '## Body',
-    post.body_content,
+    normalizeSocialText(post.body_content),
     '',
     '## Call To Action',
-    post.call_to_action,
+    normalizeSocialText(post.call_to_action),
     '',
     '## Hashtags',
-    post.hashtags.join(' '),
+    hashtags.join(' '),
   ].join('\n');
 };
 
 const socialToPostPreview = (post: ContentSocialPost | null): string => {
   if (!post) return '';
-  const hashtags = post.hashtags?.length ? `\n\n${post.hashtags.join(' ')}` : '';
-  return `${post.hook}\n\n${post.body_content}\n\n${post.call_to_action}${hashtags}`.trim();
+  return buildSocialPostText(post);
 };
 
 const getTabSocialPost = (result: CampaignResult, tab: number): ContentSocialPost | null => {
   if (tab === 1) return result.posts.linkedin;
-  if (tab === 2) return result.posts.facebook;
-  return result.posts.twitter;
+  return result.posts.facebook;
 };
 
 const getSectionLabel = (tab: number): string => {
   if (tab === 0) return 'Analysis';
   if (tab === 1) return 'LinkedIn';
-  if (tab === 2) return 'Facebook';
-  return 'Twitter';
+  return 'Facebook';
 };
 
 const formatUpdatedLabel = (value: string | null): string => {
@@ -186,7 +183,7 @@ const toActionLabel = (run: RunItem): string => {
 };
 
 const buildSnapshotFromCampaignResult = (result: CampaignResult): ContentPlanData => {
-  const socialPosts = [result.posts.linkedin, result.posts.facebook, result.posts.twitter].filter(
+  const socialPosts = [result.posts.linkedin, result.posts.facebook].filter(
     (item): item is ContentSocialPost => item !== null,
   );
   return {
@@ -227,11 +224,6 @@ const hasRunSectionChange = (run: RunItem, tab: number): boolean => {
   const snapshotHasFacebook = Boolean(
     snapshot?.social_posts.some((post) => post.platform.toLowerCase() === 'facebook'),
   );
-  const snapshotHasTwitter = Boolean(
-    snapshot?.social_posts.some((post) =>
-      ['twitter', 'x', 'twitter (x)'].includes(post.platform.toLowerCase()),
-    ),
-  );
 
   if (tab === 0) {
     return (
@@ -252,53 +244,35 @@ const hasRunSectionChange = (run: RunItem, tab: number): boolean => {
       (trigger === 'restore_snapshot' && snapshotHasLinkedIn)
     );
   }
-  if (tab === 2) {
-    return (
-      affected.some((item) => item === 'social_posts.facebook') ||
-      action === 'REWRITE_FACEBOOK_ONLY' ||
-      action === 'FULL_REGENERATE' ||
-      (trigger === 'content_plan' && snapshotHasFacebook) ||
-      (trigger === 'restore_snapshot' && snapshotHasFacebook)
-    );
-  }
   return (
-    affected.some((item) => item === 'social_posts.twitter') ||
+    affected.some((item) => item === 'social_posts.facebook') ||
+    action === 'REWRITE_FACEBOOK_ONLY' ||
     action === 'FULL_REGENERATE' ||
-    (trigger === 'content_plan' && snapshotHasTwitter) ||
-    (trigger === 'restore_snapshot' && snapshotHasTwitter)
+    (trigger === 'content_plan' && snapshotHasFacebook) ||
+    (trigger === 'restore_snapshot' && snapshotHasFacebook)
   );
 };
 
 const hasSnapshotForTab = (snapshot: ContentPlanData | null, tab: number): boolean => {
   if (!snapshot) return false;
   if (tab === 0) return true;
-  if (tab === 1) {
-    return snapshot.social_posts.some((item) => item.platform.toLowerCase().trim() === 'linkedin');
-  }
-  if (tab === 2) {
-    return snapshot.social_posts.some((item) => item.platform.toLowerCase().trim() === 'facebook');
-  }
-  return snapshot.social_posts.some((item) =>
-    ['twitter', 'x', 'twitter (x)'].includes(item.platform.toLowerCase().trim()),
-  );
+  if (tab === 1) return snapshot.social_posts.some((item) => item.platform.toLowerCase().trim() === 'linkedin');
+  return snapshot.social_posts.some((item) => item.platform.toLowerCase().trim() === 'facebook');
 };
 
 const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.ReactNode => {
   const hasLowConfidence = result.analysis.confidence_score < 0.65;
   const hasMissingInfo = result.analysis.missing_information.length > 0;
+  const sectionSx = {
+    px: 0.2,
+    py: 1.2,
+    borderBottom: '1px solid',
+    borderColor: isDark ? 'rgba(148,163,184,0.22)' : '#e2e8f0',
+  };
 
   return (
-    <Stack spacing={1.3}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          borderRadius: 1.8,
-          border: '1px solid',
-          borderColor: isDark ? 'rgba(148,163,184,0.32)' : '#dbe6f4',
-          bgcolor: isDark ? 'rgba(15,23,42,0.35)' : '#f8fbff',
-        }}
-      >
+    <Stack spacing={0.8}>
+      <Box sx={sectionSx}>
         <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
           Strategic Core
         </Typography>
@@ -312,9 +286,9 @@ const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.Rea
           <Chip size="small" label={`Intent: ${result.analysis.reader_intent}`} />
           <Chip size="small" label={`Funnel: ${result.analysis.funnel_stage}`} />
         </Stack>
-      </Paper>
+      </Box>
 
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 1.8, border: '1px solid', borderColor: 'divider' }}>
+      <Box sx={sectionSx}>
         <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
           Audience Intelligence
         </Typography>
@@ -337,9 +311,9 @@ const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.Rea
             </Typography>
           ))}
         </Box>
-      </Paper>
+      </Box>
 
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 1.8, border: '1px solid', borderColor: 'divider' }}>
+      <Box sx={sectionSx}>
         <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
           Evidence-backed Insights
         </Typography>
@@ -354,7 +328,10 @@ const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.Rea
         <Typography sx={{ mt: 1, fontWeight: 700, fontSize: '0.84rem' }}>Supporting Claims</Typography>
         <Stack spacing={0.7} sx={{ mt: 0.5 }}>
           {result.analysis.supporting_claims.map((claim, index) => (
-            <Box key={`${claim.claim}-${index}`} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.4, p: 1 }}>
+            <Box
+              key={`${claim.claim}-${index}`}
+              sx={{ borderLeft: '3px solid', borderColor: isDark ? 'rgba(96,165,250,0.6)' : '#93c5fd', pl: 1, py: 0.25 }}
+            >
               <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{claim.claim}</Typography>
               <Typography sx={{ mt: 0.4, fontSize: '0.84rem', color: 'text.secondary', whiteSpace: 'pre-wrap' }}>
                 Evidence: {claim.evidence_excerpt}
@@ -365,9 +342,9 @@ const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.Rea
             </Box>
           ))}
         </Stack>
-      </Paper>
+      </Box>
 
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 1.8, border: '1px solid', borderColor: 'divider' }}>
+      <Box sx={sectionSx}>
         <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
           Voice Guardrails
         </Typography>
@@ -381,9 +358,9 @@ const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.Rea
             </Typography>
           ))}
         </Box>
-      </Paper>
+      </Box>
 
-      <Paper elevation={0} sx={{ p: 2, borderRadius: 1.8, border: '1px solid', borderColor: 'divider' }}>
+      <Box sx={sectionSx}>
         <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
           Conversion Guidance
         </Typography>
@@ -409,15 +386,14 @@ const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.Rea
             </Typography>
           ))}
         </Box>
-      </Paper>
+      </Box>
 
-      <Paper
-        elevation={0}
+      <Box
         sx={{
-          p: 2,
-          borderRadius: 1.8,
-          border: '1px solid',
-          borderColor: hasLowConfidence || hasMissingInfo ? 'rgba(245,158,11,0.55)' : 'divider',
+          px: 0.2,
+          py: 1.2,
+          borderLeft: '3px solid',
+          borderColor: hasLowConfidence || hasMissingInfo ? 'rgba(245,158,11,0.75)' : 'transparent',
           bgcolor: hasLowConfidence || hasMissingInfo ? 'rgba(245,158,11,0.08)' : 'transparent',
         }}
       >
@@ -446,7 +422,7 @@ const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.Rea
             </Typography>
           ))}
         </Box>
-      </Paper>
+      </Box>
     </Stack>
   );
 };
@@ -480,12 +456,7 @@ const renderSocialPanel = (
       </Box>
     );
   }
-
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-      <SocialCardTwitter content={postPreview} />
-    </Box>
-  );
+  return null;
 };
 
 const panelFieldSx = (changed: boolean) => ({
@@ -580,9 +551,8 @@ const renderSnapshotByTab = (
     );
   }
 
-  const platform = activeTab === 1 ? 'linkedin' : activeTab === 2 ? 'facebook' : 'twitter';
-  const aliases =
-    platform === 'twitter' ? ['twitter', 'x', 'twitter (x)'] : [platform];
+  const platform = activeTab === 1 ? 'linkedin' : 'facebook';
+  const aliases = [platform];
   const post =
     selectedHistorySnapshot.social_posts.find((item) =>
       aliases.includes(item.platform.toLowerCase().trim()),
@@ -614,7 +584,7 @@ const renderSnapshotByTab = (
       <Paper variant="outlined" sx={{ p: 1.2, borderRadius: 1.6 }}>
         <Typography sx={{ fontWeight: 700, fontSize: '0.82rem' }}>Hashtags</Typography>
         <Typography sx={{ mt: 0.4, whiteSpace: 'pre-wrap' }}>
-          {post.hashtags.join(' ') || '-'}
+          {normalizeHashtags(post.hashtags).join(' ') || '-'}
         </Typography>
       </Paper>
     </Stack>
@@ -750,7 +720,7 @@ const renderDiffByTab = (
     );
   }
 
-  const platform = activeTab === 1 ? 'linkedin' : activeTab === 2 ? 'facebook' : 'twitter';
+  const platform = activeTab === 1 ? 'linkedin' : 'facebook';
   const diff = snapshotDiff.social[platform];
   if (!diff) {
     return <Typography color="text.secondary">No diff data for {platform} in this version.</Typography>;
@@ -787,9 +757,13 @@ const renderDiffByTab = (
       <Box sx={panelFieldSx(diff.hashtags.changed)}>
         <Typography sx={{ fontWeight: 700, fontSize: '0.82rem' }}>Hashtags</Typography>
         <Typography sx={{ mt: 0.35, fontSize: '0.78rem', color: 'text.secondary' }}>Current</Typography>
-        <Typography sx={{ whiteSpace: 'pre-wrap' }}>{diff.hashtags.before.join(' ') || '-'}</Typography>
+        <Typography sx={{ whiteSpace: 'pre-wrap' }}>
+          {normalizeHashtags(diff.hashtags.before).join(' ') || '-'}
+        </Typography>
         <Typography sx={{ mt: 0.6, fontSize: '0.78rem', color: 'text.secondary' }}>Selected version</Typography>
-        <Typography sx={{ whiteSpace: 'pre-wrap' }}>{diff.hashtags.after.join(' ') || '-'}</Typography>
+        <Typography sx={{ whiteSpace: 'pre-wrap' }}>
+          {normalizeHashtags(diff.hashtags.after).join(' ') || '-'}
+        </Typography>
       </Box>
     </Stack>
   );
@@ -842,8 +816,7 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
     if (activeTab === 0) return analysisToMarkdown(campaignResult);
     if (socialPost) return socialToMarkdown(socialPost);
     if (activeTab === 1) return campaignResult.linkedin;
-    if (activeTab === 2) return campaignResult.facebook;
-    return campaignResult.twitter;
+    return campaignResult.facebook;
   }, [campaignResult, activeTab, socialPost]);
 
   const publishPlatform: SocialPublishPlatform | null =
@@ -910,8 +883,8 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
 
   const runHasSnapshot = selectedHistorySnapshot !== null;
   const runHasSnapshotForCurrentTab = hasSnapshotForTab(selectedHistorySnapshot, activeTab);
-  const restoreTarget: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook' | 'twitter' =
-    activeTab === 0 ? 'analysis' : activeTab === 1 ? 'linkedin' : activeTab === 2 ? 'facebook' : 'twitter';
+  const restoreTarget: 'full_snapshot' | 'analysis' | 'linkedin' | 'facebook' =
+    activeTab === 0 ? 'analysis' : activeTab === 1 ? 'linkedin' : 'facebook';
 
   const publishWithOptionalPage = async (platform: SocialPublishPlatform, pageId?: string) => {
     setPublishingState((prev) => ({ ...prev, [platform]: true }));
@@ -1073,15 +1046,7 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
             </Typography>
           </Box>
         ) : (
-          <Box
-            sx={{
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e6edf5',
-              bgcolor: isDark ? alpha('#0f172a', 0.26) : alpha('#f8fbff', 0.72),
-              p: { xs: 1.2, md: 1.5 },
-            }}
-          >
+          <Box sx={{ p: { xs: 0.4, md: 0.8 } }}>
             <Box
               sx={{
                 mb: 1.5,

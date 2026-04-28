@@ -10,7 +10,7 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import { LogOut, MoonStar, Plus, Settings2, Sun, User } from 'lucide-react';
+import { Bot, CalendarClock, LogOut, MoonStar, Plus, Settings2, Sun, User } from 'lucide-react';
 import type { UserItem } from '@/features/users/api/userApi';
 import { useColorMode } from '@/theme/colorMode';
 
@@ -21,6 +21,8 @@ type MiniTaskbarProps = {
   onOpenSettings: () => void;
   onRequestLogout: () => void;
   mobile?: boolean;
+  mode?: 'recreate' | 'autopost';
+  onSwitchMode?: (mode: 'recreate' | 'autopost') => void;
 };
 
 export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
@@ -30,6 +32,8 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
   onOpenSettings,
   onRequestLogout,
   mobile = false,
+  mode = 'recreate',
+  onSwitchMode,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -110,6 +114,56 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
             }}
           >
             {isDark ? <Sun size={16} /> : <MoonStar size={16} />}
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Recreate Content" placement={mobile ? 'bottom' : 'right'}>
+          <IconButton
+            size="small"
+            aria-label="Recreate Content"
+            onClick={() => onSwitchMode?.('recreate')}
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1.5,
+              color: mode === 'recreate' ? '#0f63b5' : isDark ? '#dde5ef' : '#24364d',
+              bgcolor: mode === 'recreate'
+                ? isDark
+                  ? 'rgba(23,130,255,0.20)'
+                  : 'rgba(15,123,220,0.16)'
+                : 'transparent',
+              transition: 'all 0.18s ease',
+              '&:hover': {
+                bgcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,123,220,0.1)',
+                color: isDark ? '#ffffff' : '#0f63b5',
+              },
+            }}
+          >
+            <Bot size={16} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Auto-Post" placement={mobile ? 'bottom' : 'right'}>
+          <IconButton
+            size="small"
+            aria-label="Auto-Post"
+            onClick={() => onSwitchMode?.('autopost')}
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1.5,
+              color: mode === 'autopost' ? '#0f63b5' : isDark ? '#dde5ef' : '#24364d',
+              bgcolor: mode === 'autopost'
+                ? isDark
+                  ? 'rgba(23,130,255,0.20)'
+                  : 'rgba(15,123,220,0.16)'
+                : 'transparent',
+              transition: 'all 0.18s ease',
+              '&:hover': {
+                bgcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,123,220,0.1)',
+                color: isDark ? '#ffffff' : '#0f63b5',
+              },
+            }}
+          >
+            <CalendarClock size={16} />
           </IconButton>
         </Tooltip>
       </Box>

@@ -19,6 +19,7 @@ const RegisterLazyRouteImport = createFileRoute('/register')()
 const LoginLazyRouteImport = createFileRoute('/login')()
 const HistoryLazyRouteImport = createFileRoute('/history')()
 const ForgotPasswordLazyRouteImport = createFileRoute('/forgot-password')()
+const AutopostLazyRouteImport = createFileRoute('/autopost')()
 const IndexLazyRouteImport = createFileRoute('/')()
 const LoginGoogleCallbackLazyRouteImport = createFileRoute(
   '/login/google-callback',
@@ -63,6 +64,11 @@ const ForgotPasswordLazyRoute = ForgotPasswordLazyRouteImport.update({
 } as any).lazy(() =>
   import('./routes/forgot-password.lazy').then((d) => d.Route),
 )
+const AutopostLazyRoute = AutopostLazyRouteImport.update({
+  id: '/autopost',
+  path: '/autopost',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/autopost.lazy').then((d) => d.Route))
 const IndexLazyRoute = IndexLazyRouteImport.update({
   id: '/',
   path: '/',
@@ -78,6 +84,7 @@ const LoginGoogleCallbackLazyRoute = LoginGoogleCallbackLazyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexLazyRoute
+  '/autopost': typeof AutopostLazyRoute
   '/forgot-password': typeof ForgotPasswordLazyRoute
   '/history': typeof HistoryLazyRoute
   '/login': typeof LoginLazyRouteWithChildren
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexLazyRoute
+  '/autopost': typeof AutopostLazyRoute
   '/forgot-password': typeof ForgotPasswordLazyRoute
   '/history': typeof HistoryLazyRoute
   '/login': typeof LoginLazyRouteWithChildren
@@ -101,6 +109,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexLazyRoute
+  '/autopost': typeof AutopostLazyRoute
   '/forgot-password': typeof ForgotPasswordLazyRoute
   '/history': typeof HistoryLazyRoute
   '/login': typeof LoginLazyRouteWithChildren
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/autopost'
     | '/forgot-password'
     | '/history'
     | '/login'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/autopost'
     | '/forgot-password'
     | '/history'
     | '/login'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/autopost'
     | '/forgot-password'
     | '/history'
     | '/login'
@@ -148,6 +160,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexLazyRoute: typeof IndexLazyRoute
+  AutopostLazyRoute: typeof AutopostLazyRoute
   ForgotPasswordLazyRoute: typeof ForgotPasswordLazyRoute
   HistoryLazyRoute: typeof HistoryLazyRoute
   LoginLazyRoute: typeof LoginLazyRouteWithChildren
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForgotPasswordLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/autopost': {
+      id: '/autopost'
+      path: '/autopost'
+      fullPath: '/autopost'
+      preLoaderRoute: typeof AutopostLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -239,6 +259,7 @@ const LoginLazyRouteWithChildren = LoginLazyRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexLazyRoute: IndexLazyRoute,
+  AutopostLazyRoute: AutopostLazyRoute,
   ForgotPasswordLazyRoute: ForgotPasswordLazyRoute,
   HistoryLazyRoute: HistoryLazyRoute,
   LoginLazyRoute: LoginLazyRouteWithChildren,

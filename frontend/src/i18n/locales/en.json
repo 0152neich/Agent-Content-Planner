@@ -15,8 +15,7 @@
     "darkMode": "Dark Mode",
     "save": "Save Changes",
     "actions": "Actions",
-    "switchLanguage": "Language",
-    "twitterHandle": "@aicontent"
+    "switchLanguage": "Language"
   },
   "landing": {
     "enterprise": "Enterprise Edition 2026 Officially Released",
@@ -94,7 +93,6 @@
       "2m": "2m",
       "socialMock": {
         "linkedin": "Discover how AI Content Planner is completely changing our content creation landscape! 🚀\n\nInstead of spending hours reading, analyzing, and rewriting posts for each platform, I now only need to paste a single URL. The system automatically performs deep analysis, extracts core messages, and distributes multi-platform content.\n\n💡 Why should you care?\n- Optimize 80% of work time.\n- Ensure brand message consistency.\n- Perfect combination of 4 specialized Agents, operating like a mini marketing department.\n\nIf you're struggling with the pressure of producing content every day, it's time to let AI share that burden.\n\n#AI #ContentMarketing #MarketingStrategy #Productivity #AIContentPlanner",
-        "twitter": "Automate your multi-platform content workflow with AI Content Planner. From 1 URL to 4+ specialized Agents working for you. 🚀\n\nDeep analysis, strategic angles, and sharp drafts for LinkedIn, X, and Facebook in seconds.\n\n#AI #Tech #Marketing",
         "facebook": "Stop struggling with daily content creation! 💡\n\nAI Content Planner uses a Multi-Agent system to transform any article into viral social media posts. \n\n✅ 80% Faster\n✅ Brand Consistent\n✅ Multi-channel optimized\n\nTry it now at aicontentplanner.com! 🚀"
       }
     }

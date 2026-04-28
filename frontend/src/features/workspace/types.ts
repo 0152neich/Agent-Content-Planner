@@ -113,11 +113,9 @@ export type CampaignResult = {
   analysis: ContentAnalysis;
   linkedin: string;
   facebook: string;
-  twitter: string;
   posts: {
     linkedin: ContentSocialPost | null;
     facebook: ContentSocialPost | null;
-    twitter: ContentSocialPost | null;
   };
   meta: {
     source_url: string;
@@ -148,4 +146,38 @@ export type FacebookPageOption = {
   name: string;
   tasks: string[];
   perms: string[];
+};
+
+export type AutopostJobStatus =
+  | 'QUEUED'
+  | 'GENERATING'
+  | 'READY'
+  | 'SCHEDULED'
+  | 'PUBLISHED'
+  | 'FAILED'
+  | 'NEEDS_RECONNECT'
+  | 'CANCELLED';
+
+export type AutopostPlatform = 'linkedin' | 'facebook';
+
+export type AutopostJobItem = {
+  id: string;
+  project_id: string;
+  user_id: string;
+  platform: AutopostPlatform;
+  keyword: string;
+  timezone: string;
+  scheduled_at: string;
+  status: AutopostJobStatus;
+  page_id: string | null;
+  draft_content: string | null;
+  final_content: string | null;
+  provider_post_id: string | null;
+  provider_schedule_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  retry_count: number;
+  conversation_run_id: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 };

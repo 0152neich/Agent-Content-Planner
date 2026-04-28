@@ -91,6 +91,14 @@ export const CampaignWorkspacePage: React.FC = () => {
           onOpenProfile={() => setProfileDialogOpen(true)}
           onOpenSettings={() => setProjectSettingsOpen(true)}
           onRequestLogout={() => setConfirmLogoutOpen(true)}
+          mode="recreate"
+          onSwitchMode={(mode) => {
+            if (mode === 'autopost') {
+              navigate({ to: '/autopost' });
+              return;
+            }
+            navigate({ to: '/workspace' });
+          }}
         />
       </Box>
 
@@ -113,6 +121,14 @@ export const CampaignWorkspacePage: React.FC = () => {
             onOpenProfile={() => setProfileDialogOpen(true)}
             onOpenSettings={() => setProjectSettingsOpen(true)}
             onRequestLogout={() => setConfirmLogoutOpen(true)}
+            mode="recreate"
+            onSwitchMode={(mode) => {
+              if (mode === 'autopost') {
+                navigate({ to: '/autopost' });
+                return;
+              }
+              navigate({ to: '/workspace' });
+            }}
           />
         </Box>
         {error && (

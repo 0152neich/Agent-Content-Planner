@@ -224,7 +224,7 @@ export type SnapshotDiff = {
     missing_information: DiffListField;
   };
   social: Record<
-    'linkedin' | 'facebook' | 'twitter',
+    'linkedin' | 'facebook',
     | null
     | {
         hook: DiffField;
@@ -361,10 +361,6 @@ export const buildSnapshotDiff = (
     facebook: buildPostDiff(
       findPostByPlatform(basePosts, ['facebook']),
       findPostByPlatform(comparePosts, ['facebook']),
-    ),
-    twitter: buildPostDiff(
-      findPostByPlatform(basePosts, ['twitter', 'x', 'twitter (x)']),
-      findPostByPlatform(comparePosts, ['twitter', 'x', 'twitter (x)']),
     ),
   };
 

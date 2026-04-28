@@ -7,6 +7,7 @@ export type UserItem = {
   full_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  timezone?: string | null;
   is_active: boolean;
   email_verified: boolean;
   role: string;
@@ -21,6 +22,7 @@ export type UserCreatePayload = {
   full_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
+  timezone?: string | null;
   is_active?: boolean;
   email_verified?: boolean;
   role?: string;
@@ -33,6 +35,7 @@ export type UserUpdatePayload = {
   full_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
+  timezone?: string | null;
   is_active?: boolean;
   email_verified?: boolean;
   role?: string;
