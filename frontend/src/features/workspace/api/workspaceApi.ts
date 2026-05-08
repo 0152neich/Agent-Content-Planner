@@ -17,6 +17,7 @@ import type {
   SocialPublishResult,
   AutopostJobItem,
   AutopostPlatform,
+  AutopostSourceMode,
 } from '../types';
 
 export const getHealthApi = async (): Promise<{ status: string }> =>
@@ -441,10 +442,12 @@ export const createAutopostJobApi = async (
   payload: {
     project_id: string;
     platform: AutopostPlatform;
-    keyword: string;
+    keyword?: string;
     scheduled_at: string;
     publish_mode?: 'now' | 'schedule';
     page_id?: string;
+    source_mode?: AutopostSourceMode;
+    content?: string;
   },
 ): Promise<{ id: string; status: string }> =>
   requestEnvelope<{ id: string; status: string }>('/autopost/jobs', {

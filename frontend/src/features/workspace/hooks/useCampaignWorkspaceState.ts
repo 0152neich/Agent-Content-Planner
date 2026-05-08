@@ -19,6 +19,7 @@ import {
   getProjectModelVisibility,
   MODEL_VISIBILITY_UPDATED_EVENT,
 } from '../modelVisibilityStorage';
+import { clearWorkspaceIntent, getWorkspaceIntent } from '../workspaceIntentStorage';
 import type {
   CampaignResult,
   ContentPlanData,
@@ -149,7 +150,12 @@ const toCampaignResult = (
       source_url: contentPlan.source_url,
       run_id: run?.id ?? null,
       selected_model: selectedModel || null,
-      updated_at: run?.finished_at || run?.createdAt || new Date().toISOString(),
+      updated_at:
+        contentPlan.meta?.updated_at ||
+        run?.finished_at ||
+        run?.createdAt ||
+        run?.started_at ||
+        new Date().toISOString(),
     },
   };
 };
@@ -182,6 +188,8 @@ const findLatestRunWithSnapshot = (
 
 type WorkspaceState = {
   currentUser: UserItem | null;
+  projects: ProjectItem[];
+  activeProjectId: string | null;
   project: ProjectItem | null;
   conversation: ConversationItem | null;
   chatMessages: WorkspaceChatMessage[];
@@ -216,12 +224,15 @@ type WorkspaceState = {
   ) => Promise<SocialPublishResult>;
   getFacebookPages: () => Promise<FacebookPageOption[]>;
   reload: () => Promise<void>;
+  switchProject: (projectId: string) => void;
 };
 
 export const useCampaignWorkspaceState = (): WorkspaceState => {
   const navigate = useNavigate();
 
   const [currentUser, setCurrentUser] = useState<UserItem | null>(null);
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
   const [project, setProject] = useState<ProjectItem | null>(null);
   const [conversation, setConversation] = useState<ConversationItem | null>(null);
   const [conversationMessages, setConversationMessages] = useState<WorkspaceChatMessage[]>([]);
@@ -310,19 +321,28 @@ export const useCampaignWorkspaceState = (): WorkspaceState => {
       setCurrentUser(me);
 
       let activeProjectId = getActiveProjectId();
-      const projects = await getProjectsApi(accessToken);
-      if (!projects.length) {
+      const projectList = await getProjectsApi(accessToken);
+      setProjects(projectList);
+      if (!projectList.length) {
         navigate({ to: '/welcome' });
         return;
       }
 
-      if (!activeProjectId || !projects.some((item) => item.id === activeProjectId)) {
-        activeProjectId = projects[0].id;
+      if (!activeProjectId || !projectList.some((item) => item.id === activeProjectId)) {
+        activeProjectId = projectList[0].id;
         setActiveProjectId(activeProjectId);
       }
+      setActiveProjectIdState(activeProjectId);
 
       const selectedProject = await getProjectByIdApi(accessToken, activeProjectId);
       setProject(selectedProject);
+      let pendingIntent = getWorkspaceIntent();
+      const applyPendingIntent = () => {
+        if (!pendingIntent) return;
+        setActiveTab(pendingIntent.target_platform === 'linkedin' ? 1 : 2);
+        clearWorkspaceIntent();
+        pendingIntent = null;
+      };
 
       const ensuredConversation = await createConversationApi(accessToken, selectedProject.id, {
         title: `${selectedProject.name} Campaign`,
@@ -355,12 +375,14 @@ export const useCampaignWorkspaceState = (): WorkspaceState => {
             ensuredConversation.selected_model || DEFAULT_MODEL,
           ),
         );
+        applyPendingIntent();
         setLoadingResult(false);
         return;
       }
 
       if (!selectedProject.source_url) {
         setCampaignResult(null);
+        applyPendingIntent();
         setLoadingResult(false);
         return;
       }
@@ -396,6 +418,7 @@ export const useCampaignWorkspaceState = (): WorkspaceState => {
             ensuredConversation.selected_model || DEFAULT_MODEL,
           ),
         );
+        applyPendingIntent();
         return;
       }
 
@@ -411,6 +434,7 @@ export const useCampaignWorkspaceState = (): WorkspaceState => {
       } else {
         setCampaignResult(null);
       }
+      applyPendingIntent();
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Failed to load campaign workspace.');
     } finally {
@@ -419,6 +443,15 @@ export const useCampaignWorkspaceState = (): WorkspaceState => {
       loadInFlightRef.current = false;
     }
   }, [navigate, waitForSnapshotRun]);
+
+  const switchProject = useCallback((projectId: string) => {
+    const nextProjectId = projectId.trim();
+    if (!nextProjectId || nextProjectId === activeProjectId) {
+      return;
+    }
+    setActiveProjectId(nextProjectId);
+    setActiveProjectIdState(nextProjectId);
+  }, [activeProjectId]);
 
   useEffect(() => {
     void loadWorkspace();
@@ -782,6 +815,8 @@ export const useCampaignWorkspaceState = (): WorkspaceState => {
 
   return {
     currentUser,
+    projects,
+    activeProjectId,
     project,
     conversation,
     chatMessages,
@@ -809,5 +844,6 @@ export const useCampaignWorkspaceState = (): WorkspaceState => {
     publishSocialPost,
     getFacebookPages,
     reload: loadWorkspace,
+    switchProject,
   };
 };

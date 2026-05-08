@@ -23,6 +23,7 @@ import {
   getProjectsApi,
   getRunDetailApi,
 } from '@/features/workspace/api/workspaceApi';
+import { getRunLastUpdatedAt } from '@/features/workspace/historyUtils';
 import {
   getActiveProjectId,
   setActiveProjectId,
@@ -110,7 +111,7 @@ export const HistoryGrid: React.FC = () => {
         conversationId: run.conversation_id,
         title: getRunTitle(run),
         url: run.source_url,
-        date: formatDate(run.createdAt || run.started_at),
+        date: formatDate(getRunLastUpdatedAt(run)),
         platforms: run.platforms || [],
       })),
     [runs],

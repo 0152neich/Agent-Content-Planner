@@ -17,6 +17,8 @@ export const CampaignWorkspacePage: React.FC = () => {
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
   const {
     currentUser,
+    projects,
+    activeProjectId,
     chatMessages,
     campaignResult,
     activeTab,
@@ -40,6 +42,7 @@ export const CampaignWorkspacePage: React.FC = () => {
     restoreFromRun,
     publishSocialPost,
     getFacebookPages,
+    switchProject,
   } = useCampaignWorkspaceState();
 
   const submitPrompt = useCallback(() => {
@@ -65,6 +68,11 @@ export const CampaignWorkspacePage: React.FC = () => {
     }
   }, [navigate]);
 
+  const handleSelectProject = useCallback((projectId: string) => {
+    switchProject(projectId);
+    navigate({ to: '/workspace' });
+  }, [navigate, switchProject]);
+
   return (
     <Box
       sx={{
@@ -87,6 +95,9 @@ export const CampaignWorkspacePage: React.FC = () => {
       >
         <MiniTaskbar
           currentUser={currentUser}
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onSelectProject={handleSelectProject}
           onCreateProject={() => navigate({ to: '/welcome' })}
           onOpenProfile={() => setProfileDialogOpen(true)}
           onOpenSettings={() => setProjectSettingsOpen(true)}
@@ -117,6 +128,9 @@ export const CampaignWorkspacePage: React.FC = () => {
           <MiniTaskbar
             mobile
             currentUser={currentUser}
+            projects={projects}
+            activeProjectId={activeProjectId}
+            onSelectProject={handleSelectProject}
             onCreateProject={() => navigate({ to: '/welcome' })}
             onOpenProfile={() => setProfileDialogOpen(true)}
             onOpenSettings={() => setProjectSettingsOpen(true)}

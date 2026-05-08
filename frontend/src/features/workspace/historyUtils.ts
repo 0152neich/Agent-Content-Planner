@@ -2,6 +2,9 @@ import type { ContentPlanData, ContentSocialPost, RunItem } from './types';
 
 const toText = (value: unknown): string => (typeof value === 'string' ? value : '');
 
+const toOptionalText = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim().length > 0 ? value : null;
+
 const toStringArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
 
@@ -88,6 +91,10 @@ export const parseContentPlanSnapshot = (value: unknown): ContentPlanData | null
     return null;
   }
   const analysisSource = analysisRaw as Record<string, unknown>;
+  const snapshotMeta =
+    source.meta && typeof source.meta === 'object'
+      ? (source.meta as Record<string, unknown>)
+      : null;
   const socialPosts = postsRaw
     .filter((item) => item && typeof item === 'object')
     .map((item) => {
@@ -143,6 +150,12 @@ export const parseContentPlanSnapshot = (value: unknown): ContentPlanData | null
 
   return {
     source_url: toText(source.source_url),
+    meta: snapshotMeta
+      ? {
+        ...snapshotMeta,
+        updated_at: toOptionalText(snapshotMeta.updated_at),
+        }
+      : undefined,
     analysis: {
       core_message:
         toText(analysisSource.core_message) || 'No core message extracted.',
@@ -174,6 +187,26 @@ export const parseContentPlanSnapshot = (value: unknown): ContentPlanData | null
     social_posts: socialPosts,
   };
 };
+
+const getSnapshotUpdatedAt = (payload: unknown): string | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+  const source = payload as Record<string, unknown>;
+  const meta = source.meta;
+  if (!meta || typeof meta !== 'object') {
+    return null;
+  }
+  return toOptionalText((meta as Record<string, unknown>).updated_at);
+};
+
+export const getRunLastUpdatedAt = (run: RunItem): string | null =>
+  getSnapshotUpdatedAt(run.response_payload?.content_plan_snapshot) ||
+  getSnapshotUpdatedAt(run.response_payload) ||
+  run.finished_at ||
+  run.createdAt ||
+  run.started_at ||
+  null;
 
 export const extractContentPlanFromRun = (run: RunItem): ContentPlanData | null => {
   const snapshot = run.response_payload?.content_plan_snapshot;

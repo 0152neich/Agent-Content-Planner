@@ -2,16 +2,19 @@ import React from 'react';
 import {
   Avatar,
   Box,
+  Divider,
   IconButton,
   ListItemIcon,
   ListItemText,
   Menu,
   MenuItem,
+  Typography,
   Tooltip,
   useTheme,
 } from '@mui/material';
-import { Bot, CalendarClock, LogOut, MoonStar, Plus, Settings2, Sun, User } from 'lucide-react';
+import { CalendarClock, Check, FolderOpen, LogOut, MoonStar, Plus, Settings2, Sun, User } from 'lucide-react';
 import type { UserItem } from '@/features/users/api/userApi';
+import type { ProjectItem } from '@/features/workspace/types';
 import { useColorMode } from '@/theme/colorMode';
 
 type MiniTaskbarProps = {
@@ -23,6 +26,9 @@ type MiniTaskbarProps = {
   mobile?: boolean;
   mode?: 'recreate' | 'autopost';
   onSwitchMode?: (mode: 'recreate' | 'autopost') => void;
+  projects?: ProjectItem[];
+  activeProjectId?: string | null;
+  onSelectProject?: (projectId: string) => void;
 };
 
 export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
@@ -34,12 +40,17 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
   mobile = false,
   mode = 'recreate',
   onSwitchMode,
+  projects = [],
+  activeProjectId = null,
+  onSelectProject,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { toggleMode } = useColorMode();
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
+  const [projectAnchorEl, setProjectAnchorEl] = React.useState<HTMLElement | null>(null);
   const openMenu = Boolean(anchorEl);
+  const openProjectMenu = Boolean(projectAnchorEl);
 
   const avatarLabel = (currentUser?.full_name || currentUser?.user_name || currentUser?.email || 'U')
     .trim()
@@ -116,11 +127,11 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
             {isDark ? <Sun size={16} /> : <MoonStar size={16} />}
           </IconButton>
         </Tooltip>
-        <Tooltip title="Recreate Content" placement={mobile ? 'bottom' : 'right'}>
+        <Tooltip title="Projects" placement={mobile ? 'bottom' : 'right'}>
           <IconButton
             size="small"
-            aria-label="Recreate Content"
-            onClick={() => onSwitchMode?.('recreate')}
+            aria-label="Open project menu"
+            onClick={(event) => setProjectAnchorEl(event.currentTarget)}
             sx={{
               width: 36,
               height: 36,
@@ -138,7 +149,7 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
               },
             }}
           >
-            <Bot size={16} />
+            <FolderOpen size={16} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Auto-Post" placement={mobile ? 'bottom' : 'right'}>
@@ -205,6 +216,71 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
           </Avatar>
         </IconButton>
       </Tooltip>
+
+      <Menu
+        open={openProjectMenu}
+        anchorEl={projectAnchorEl}
+        onClose={() => setProjectAnchorEl(null)}
+        anchorOrigin={{ vertical: mobile ? 'bottom' : 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: mobile ? 'top' : 'bottom', horizontal: 'left' }}
+        PaperProps={{
+          sx: {
+            width: 280,
+            borderRadius: 1.5,
+            border: '1px solid',
+            borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#d7e2ef',
+            p: 0.5,
+          },
+        }}
+      >
+        <Box sx={{ px: 1.2, py: 0.8 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+            Your projects
+          </Typography>
+        </Box>
+        {!projects.length ? (
+          <MenuItem disabled sx={{ borderRadius: 1.2 }}>
+            <ListItemText primary="No projects yet" />
+          </MenuItem>
+        ) : null}
+        {projects.map((project) => {
+          const isActiveProject = activeProjectId === project.id;
+          return (
+            <MenuItem
+              key={project.id}
+              sx={{ borderRadius: 1.2, py: 1.1 }}
+              onClick={() => {
+                setProjectAnchorEl(null);
+                onSelectProject?.(project.id);
+              }}
+            >
+              <Avatar sx={{ width: 30, height: 30, mr: 1.1, bgcolor: '#1976d2', fontSize: '0.75rem' }}>
+                {project.name.slice(0, 1).toUpperCase()}
+              </Avatar>
+              <ListItemText
+                primary={project.name}
+                secondary={project.source_url || 'No URL'}
+                primaryTypographyProps={{ fontWeight: 700, fontSize: '0.85rem' }}
+                secondaryTypographyProps={{ noWrap: true, fontSize: '0.72rem' }}
+              />
+              {isActiveProject ? <Check size={16} /> : null}
+            </MenuItem>
+          );
+        })}
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          sx={{ borderRadius: 1.2, py: 1 }}
+          onClick={() => {
+            setProjectAnchorEl(null);
+            onCreateProject();
+          }}
+        >
+          <ListItemIcon>
+            <Plus size={16} />
+          </ListItemIcon>
+          <ListItemText primary="Add new project" />
+        </MenuItem>
+      </Menu>
 
       <Menu
         open={openMenu}

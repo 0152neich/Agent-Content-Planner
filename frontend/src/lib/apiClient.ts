@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+  import.meta.env.VITE_API_BASE_URL ?? 'http://103.82.192.43:8000/api/v1';
 
 export type ApiEnvelope<T> = {
   success: boolean;

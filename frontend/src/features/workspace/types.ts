@@ -107,6 +107,10 @@ export type ContentPlanData = {
   source_url: string;
   analysis: ContentAnalysis;
   social_posts: ContentSocialPost[];
+  meta?: {
+    updated_at?: string | null;
+    [key: string]: unknown;
+  };
 };
 
 export type CampaignResult = {
@@ -159,6 +163,7 @@ export type AutopostJobStatus =
   | 'CANCELLED';
 
 export type AutopostPlatform = 'linkedin' | 'facebook';
+export type AutopostSourceMode = 'keyword' | 'content';
 
 export type AutopostJobItem = {
   id: string;

@@ -24,6 +24,15 @@ import {
   useTheme,
 } from '@mui/material';
 import { ExternalLink, History, Rocket, RotateCcw } from 'lucide-react';
+import {
+  IconAlertTriangle,
+  IconCertificate,
+  IconDatabaseOff,
+  IconFlame,
+  IconMessage2,
+  IconMicrophone2,
+  IconUsers,
+} from '@tabler/icons-react';
 import { useSnackbar } from '@/components/AppLayout';
 import type {
   CampaignResult,
@@ -34,7 +43,11 @@ import type {
   SocialPublishPlatform,
   SocialPublishResult,
 } from '../types';
-import { buildSnapshotDiff, extractContentPlanFromRun } from '../historyUtils';
+import {
+  buildSnapshotDiff,
+  extractContentPlanFromRun,
+  getRunLastUpdatedAt,
+} from '../historyUtils';
 import { buildSocialPostText, normalizeHashtags, normalizeSocialText } from '../socialTextUtils';
 import { CopyButton } from './CopyButton';
 import { ResultTabsShell } from './ResultTabsShell';
@@ -161,7 +174,7 @@ const formatUpdatedLabel = (value: string | null): string => {
 };
 
 const formatRunDate = (run: RunItem): string => {
-  const source = run.finished_at || run.started_at || run.createdAt;
+  const source = getRunLastUpdatedAt(run);
   if (!source) return 'Unknown time';
   const parsed = new Date(source);
   if (Number.isNaN(parsed.getTime())) return 'Unknown time';
@@ -260,170 +273,583 @@ const hasSnapshotForTab = (snapshot: ContentPlanData | null, tab: number): boole
   return snapshot.social_posts.some((item) => item.platform.toLowerCase().trim() === 'facebook');
 };
 
-const renderAnalysisPanel = (result: CampaignResult, isDark: boolean): React.ReactNode => {
-  const hasLowConfidence = result.analysis.confidence_score < 0.65;
-  const hasMissingInfo = result.analysis.missing_information.length > 0;
-  const sectionSx = {
-    px: 0.2,
-    py: 1.2,
-    borderBottom: '1px solid',
-    borderColor: isDark ? 'rgba(148,163,184,0.22)' : '#e2e8f0',
+const CONTENT_BRIEF_DEFAULT_VISIBLE_ITEMS = 2;
+const VOICE_GUIDELINE_PREVIEW_LENGTH = 170;
+
+type BriefSectionKey = 'sayWhat' | 'sayWho' | 'sayHow' | 'evidence' | 'risk';
+type BriefListKey = 'takeaways' | 'painPoints' | 'outcomes';
+type ReliabilityLevel = 'high' | 'medium' | 'low';
+
+const getReliabilityLevel = (confidenceScore: number): ReliabilityLevel => {
+  if (confidenceScore >= 0.8) return 'high';
+  if (confidenceScore >= 0.65) return 'medium';
+  return 'low';
+};
+
+const truncateListWithToggle = (
+  items: string[],
+  expanded: boolean,
+  limit = CONTENT_BRIEF_DEFAULT_VISIBLE_ITEMS,
+): { visibleItems: string[]; hiddenCount: number; canToggle: boolean } => {
+  if (expanded) {
+    return { visibleItems: items, hiddenCount: 0, canToggle: items.length > limit };
+  }
+  return {
+    visibleItems: items.slice(0, limit),
+    hiddenCount: Math.max(0, items.length - limit),
+    canToggle: items.length > limit,
+  };
+};
+
+const buildPublishReadinessItems = (riskFlags: string[], missingInformation: string[]): string[] => {
+  const items: string[] = [];
+  if (missingInformation.length) {
+    items.push(`Bổ sung ${missingInformation.length} thông tin còn thiếu để tránh thiếu ngữ cảnh.`);
+  }
+  if (riskFlags.length) {
+    items.push(`Rà soát ${riskFlags.length} cờ rủi ro để giảm khả năng sai thông điệp.`);
+  }
+  if (!items.length) {
+    items.push('Sẵn sàng publish, chỉ cần kiểm tra lại format và link đính kèm.');
+  }
+  return items;
+};
+
+type ContentBriefDashboardProps = {
+  result: CampaignResult;
+};
+
+const ContentBriefDashboard: React.FC<ContentBriefDashboardProps> = ({ result }) => {
+  const [activeSection, setActiveSection] = useState<BriefSectionKey>('sayWhat');
+  const [expandedLists, setExpandedLists] = useState<Record<BriefListKey, boolean>>({
+    takeaways: false,
+    painPoints: false,
+    outcomes: false,
+  });
+  const [expandedEvidenceByIndex, setExpandedEvidenceByIndex] = useState<Record<number, boolean>>({});
+  const [expandedVoiceText, setExpandedVoiceText] = useState(false);
+
+  useEffect(() => {
+    setActiveSection('sayWhat');
+    setExpandedLists({
+      takeaways: false,
+      painPoints: false,
+      outcomes: false,
+    });
+    setExpandedEvidenceByIndex({});
+    setExpandedVoiceText(false);
+  }, [result.meta.run_id]);
+
+  const toggleList = (key: BriefListKey) => {
+    setExpandedLists((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const takeawaysView = truncateListWithToggle(result.analysis.key_takeaways, expandedLists.takeaways);
+  const painPointsView = truncateListWithToggle(result.analysis.audience_pain_points, expandedLists.painPoints);
+  const outcomesView = truncateListWithToggle(
+    result.analysis.audience_desired_outcomes,
+    expandedLists.outcomes,
+  );
+  const publishReadinessItems = buildPublishReadinessItems(
+    result.analysis.risk_flags,
+    result.analysis.missing_information,
+  );
+
+  const voiceGuidelineText = result.analysis.voice_guidelines.join(' ').trim();
+  const hasMoreVoiceText = voiceGuidelineText.length > VOICE_GUIDELINE_PREVIEW_LENGTH;
+  const voicePreview = hasMoreVoiceText
+    ? voiceGuidelineText.slice(0, VOICE_GUIDELINE_PREVIEW_LENGTH).trimEnd()
+    : voiceGuidelineText;
+  const voiceRest = hasMoreVoiceText ? voiceGuidelineText.slice(VOICE_GUIDELINE_PREVIEW_LENGTH) : '';
+
+  const sectionItems: Array<{
+    key: BriefSectionKey;
+    label: string;
+    icon: React.ReactNode;
+    iconBg: string;
+    danger?: boolean;
+  }> = [
+    {
+      key: 'sayWhat',
+      label: 'What',
+      icon: <IconMessage2 size={18} />,
+      iconBg: 'var(--semantic-pastel-green)',
+    },
+    {
+      key: 'sayWho',
+      label: 'Who',
+      icon: <IconUsers size={18} />,
+      iconBg: 'var(--semantic-pastel-purple)',
+    },
+    {
+      key: 'sayHow',
+      label: 'How',
+      icon: <IconMicrophone2 size={18} />,
+      iconBg: 'var(--semantic-pastel-teal)',
+    },
+    {
+      key: 'evidence',
+      label: 'reference',
+      icon: <IconCertificate size={18} />,
+      iconBg: 'var(--semantic-pastel-blue)',
+    },
+    {
+      key: 'risk',
+      label: 'risk',
+      icon: <IconAlertTriangle size={18} />,
+      iconBg: 'var(--semantic-pastel-red)',
+      danger: true,
+    },
+  ];
+
+  const activeSectionItem =
+    sectionItems.find((item) => item.key === activeSection) ?? sectionItems[0];
+
+  const sectionLabelSx = {
+    fontSize: '10px',
+    textTransform: 'uppercase',
+    color: '#6f87a8',
+    letterSpacing: '0.02em',
+  };
+
+  const sectionDividerSx = {
+    borderBottom: '1px solid #bdd0e8',
+    py: 0.7,
+  };
+
+  const renderActiveSection = (): React.ReactNode => {
+    if (activeSection === 'sayWhat') {
+      return (
+        <Stack spacing={0} sx={{ px: 1.2, py: 0.9 }}>
+          <Box sx={sectionDividerSx}>
+            <Typography sx={sectionLabelSx}>
+              Thông điệp cốt lõi
+            </Typography>
+            <Typography sx={{ mt: 0.45, fontSize: '1.1rem', fontWeight: 700, color: '#0f2e55' }}>
+              {result.analysis.core_message || '-'}
+            </Typography>
+          </Box>
+          <Box sx={sectionDividerSx}>
+            <Typography sx={sectionLabelSx}>
+              Lợi thế nổi bật
+            </Typography>
+            <Typography sx={{ mt: 0.45, fontSize: '0.95rem', color: '#315d8b', lineHeight: 1.5 }}>
+              {result.analysis.value_proposition || '-'}
+            </Typography>
+          </Box>
+          <Box sx={{ py: 0.7 }}>
+            <Typography sx={sectionLabelSx}>
+              3 điểm quan trọng nhất
+            </Typography>
+            <Stack spacing={0.6} sx={{ mt: 0.65 }}>
+              {takeawaysView.visibleItems.map((item, index) => (
+                <Box
+                  key={`${item}-${index}`}
+                  sx={{
+                    px: 0.9,
+                    py: 0.64,
+                    borderRadius: 2.5,
+                    bgcolor: '#eef1f7',
+                  }}
+                >
+                  <Typography sx={{ fontSize: '0.93rem', color: '#0f2e55' }}>
+                    {index + 1}.
+                    {' '}{item}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+            {takeawaysView.canToggle ? (
+              <Button
+                size="small"
+                onClick={() => toggleList('takeaways')}
+                sx={{ mt: 0.7, px: 0, color: '#4b3cc8', fontSize: '0.93rem', fontWeight: 600 }}
+              >
+                {expandedLists.takeaways ? '− Thu gọn' : `+ Xem thêm (${takeawaysView.hiddenCount})`}
+              </Button>
+            ) : null}
+          </Box>
+        </Stack>
+      );
+    }
+
+    if (activeSection === 'sayWho') {
+      return (
+        <Stack spacing={0.75} sx={{ px: 1.2, py: 0.9 }}>
+          <Box sx={sectionDividerSx}>
+            <Typography sx={sectionLabelSx}>
+              Đối tượng mục tiêu
+            </Typography>
+            <Stack direction="row" spacing={0.65} flexWrap="wrap" sx={{ mt: 0.55 }}>
+              <Chip size="small" label={result.analysis.target_audience || 'General audience'} />
+              <Chip size="small" label={`Intent: ${result.analysis.reader_intent}`} />
+              <Chip size="small" label={`Funnel: ${result.analysis.funnel_stage}`} />
+            </Stack>
+            <Typography sx={{ mt: 0.65, fontSize: '0.95rem', color: '#315d8b' }}>
+              {result.analysis.target_audience || 'Chưa có mô tả đối tượng.'}
+            </Typography>
+          </Box>
+
+          <Box sx={sectionDividerSx}>
+            <Typography sx={sectionLabelSx}>
+              Nỗi đau hàng đầu
+            </Typography>
+            <Stack spacing={0.5} sx={{ mt: 0.45 }}>
+              {painPointsView.visibleItems.map((item, index) => (
+                <Box
+                  key={`${item}-${index}`}
+                  sx={{ px: 0.8, py: 0.6, borderRadius: 2.5, bgcolor: '#eef1f7' }}
+                >
+                  <Typography sx={{ fontSize: '0.93rem', color: '#0f2e55' }}>
+                    {index + 1}.
+                    {' '}{item}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+            {painPointsView.canToggle ? (
+              <Button
+                size="small"
+                onClick={() => toggleList('painPoints')}
+                sx={{ mt: 0.55, px: 0, color: '#4b3cc8', fontSize: '0.93rem', fontWeight: 600 }}
+              >
+                {expandedLists.painPoints ? '− Thu gọn' : `+ Xem thêm (${painPointsView.hiddenCount})`}
+              </Button>
+            ) : null}
+          </Box>
+
+          <Box sx={{ py: 0.7 }}>
+            <Typography sx={sectionLabelSx}>
+              Kết quả mong muốn
+            </Typography>
+            <Stack spacing={0.5} sx={{ mt: 0.45 }}>
+              {outcomesView.visibleItems.map((item, index) => (
+                <Box
+                  key={`${item}-${index}`}
+                  sx={{ px: 0.8, py: 0.6, borderRadius: 2.5, bgcolor: '#eef1f7' }}
+                >
+                  <Typography sx={{ fontSize: '0.93rem', color: '#0f2e55' }}>
+                    {index + 1}.
+                    {' '}{item}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+            {outcomesView.canToggle ? (
+              <Button
+                size="small"
+                onClick={() => toggleList('outcomes')}
+                sx={{ mt: 0.55, px: 0, color: '#4b3cc8', fontSize: '0.93rem', fontWeight: 600 }}
+              >
+                {expandedLists.outcomes ? '− Thu gọn' : `+ Xem thêm (${outcomesView.hiddenCount})`}
+              </Button>
+            ) : null}
+          </Box>
+        </Stack>
+      );
+    }
+
+    if (activeSection === 'sayHow') {
+      return (
+        <Stack spacing={0.8} sx={{ px: 1.2, py: 0.9 }}>
+          <Box sx={sectionDividerSx}>
+            <Typography sx={sectionLabelSx}>
+              Giọng điệu
+            </Typography>
+            <Typography sx={{ mt: 0.45, fontSize: '1.1rem', fontWeight: 700, color: '#0f2e55' }}>
+              {result.analysis.tone_of_voice || 'Informative'}
+            </Typography>
+          </Box>
+          <Box sx={{ py: 0.7 }}>
+            <Typography sx={sectionLabelSx}>
+              Hướng dẫn giọng nói
+            </Typography>
+            <Typography sx={{ mt: 0.45, fontSize: '0.95rem', color: '#315d8b', lineHeight: 1.55 }}>
+              {voicePreview}
+              {hasMoreVoiceText && !expandedVoiceText ? '...' : ''}
+              {hasMoreVoiceText ? (
+                <span style={{ display: expandedVoiceText ? 'inline' : 'none' }}>{voiceRest}</span>
+              ) : null}
+              {hasMoreVoiceText ? (
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={() => setExpandedVoiceText((prev) => !prev)}
+                  sx={{
+                    ml: 0.6,
+                    p: 0,
+                    border: 'none',
+                    bgcolor: 'transparent',
+                    color: '#4b3cc8',
+                    cursor: 'pointer',
+                    fontSize: '0.93rem',
+                  }}
+                >
+                  {expandedVoiceText ? 'Thu gọn' : 'Xem thêm'}
+                </Box>
+              ) : null}
+            </Typography>
+          </Box>
+        </Stack>
+      );
+    }
+
+    if (activeSection === 'evidence') {
+      return (
+        <Box
+          sx={{
+            px: 1.2,
+            py: 0.9,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+            gap: 1,
+          }}
+        >
+          {result.analysis.supporting_claims.map((claim, index) => {
+            const expanded = Boolean(expandedEvidenceByIndex[index]);
+            return (
+              <Box
+                key={`${claim.claim}-${index}`}
+                sx={{
+                  border: '1px solid #c1d3e9',
+                  borderLeft: '2px solid var(--semantic-evidence-accent)',
+                  borderRadius: 1.2,
+                  px: 0.85,
+                  py: 0.7,
+                }}
+              >
+                <Typography sx={{ fontSize: '0.93rem', fontWeight: 700, color: '#0f2e55' }}>{claim.claim}</Typography>
+                <Typography sx={{ mt: 0.45, fontSize: '0.85rem', color: '#315d8b' }}>
+                  {claim.evidence_excerpt}
+                </Typography>
+                {expanded ? (
+                  <Typography sx={{ mt: 0.5, fontSize: '0.85rem', color: '#0f2e55' }}>
+                    {claim.evidence_reason}
+                  </Typography>
+                ) : null}
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setExpandedEvidenceByIndex((prev) => ({ ...prev, [index]: !expanded }));
+                  }}
+                  sx={{ mt: 0.4, px: 0, color: '#4b3cc8', fontSize: '0.85rem', fontWeight: 600 }}
+                >
+                  {expanded ? '▴ Thu gọn' : '▾ Xem thêm'}
+                </Button>
+              </Box>
+            );
+          })}
+        </Box>
+      );
+    }
+
+    return (
+      <Stack spacing={0.8} sx={{ px: 1.2, py: 0.9 }}>
+        <Box sx={{ px: 0.8, py: 0.7, borderRadius: 1.4, border: '0.5px solid var(--semantic-risk-border)', bgcolor: 'var(--semantic-risk-bg)' }}>
+          <Stack direction="row" alignItems="center" spacing={0.55}>
+            <IconFlame size={14} color="var(--semantic-risk-text)" />
+            <Typography sx={{ fontSize: '0.93rem', fontWeight: 700, color: 'var(--semantic-risk-text)' }}>
+              Cờ rủi ro
+            </Typography>
+          </Stack>
+          <Stack spacing={0.35} sx={{ mt: 0.45 }}>
+            {(result.analysis.risk_flags.length ? result.analysis.risk_flags : ['Không có rủi ro chính']).map((item, index) => (
+              <Typography key={`${item}-${index}`} sx={{ fontSize: '0.85rem', color: 'var(--semantic-risk-text)' }}>
+                ✕ {item}
+              </Typography>
+            ))}
+          </Stack>
+        </Box>
+
+        <Box sx={{ px: 0.8, py: 0.7, borderRadius: 1.4, border: '0.5px solid var(--semantic-missing-border)', bgcolor: 'var(--semantic-missing-bg)' }}>
+          <Stack direction="row" alignItems="center" spacing={0.55}>
+            <IconDatabaseOff size={14} color="var(--semantic-missing-text)" />
+            <Typography sx={{ fontSize: '0.93rem', fontWeight: 700, color: 'var(--semantic-missing-text)' }}>
+              Thông tin còn thiếu
+            </Typography>
+          </Stack>
+          <Stack spacing={0.35} sx={{ mt: 0.45 }}>
+            {(result.analysis.missing_information.length ? result.analysis.missing_information : ['Không có dữ liệu thiếu nghiêm trọng']).map((item, index) => (
+              <Typography key={`${item}-${index}`} sx={{ fontSize: '0.85rem', color: 'var(--semantic-missing-text)' }}>
+                ● {item}
+              </Typography>
+            ))}
+          </Stack>
+        </Box>
+
+        <Box sx={{ px: 0.8, py: 0.7, borderLeft: '2px solid var(--semantic-accent-main)', bgcolor: 'var(--semantic-brief-pill-bg)' }}>
+          <Typography sx={{ fontSize: '0.93rem', fontWeight: 700, color: '#0f2e55' }}>
+            Cần bổ sung trước khi publish
+          </Typography>
+          <Stack spacing={0.35} sx={{ mt: 0.4 }}>
+            {publishReadinessItems.map((item, index) => (
+              <Typography key={`${item}-${index}`} sx={{ fontSize: '0.85rem', color: '#315d8b' }}>
+                → {item}
+              </Typography>
+            ))}
+          </Stack>
+        </Box>
+      </Stack>
+    );
   };
 
   return (
-    <Stack spacing={0.8}>
-      <Box sx={sectionSx}>
-        <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-          Strategic Core
-        </Typography>
-        <Typography sx={{ mt: 0.75, fontSize: '1.04rem', lineHeight: 1.65, fontWeight: 600 }}>
-          {result.analysis.core_message || 'No core message available.'}
-        </Typography>
-        <Typography sx={{ mt: 0.9, fontSize: '0.9rem', color: 'text.secondary' }}>
-          Value proposition: {result.analysis.value_proposition || '-'}
-        </Typography>
-        <Stack direction="row" spacing={0.8} sx={{ mt: 1, flexWrap: 'wrap' }}>
-          <Chip size="small" label={`Intent: ${result.analysis.reader_intent}`} />
-          <Chip size="small" label={`Funnel: ${result.analysis.funnel_stage}`} />
-        </Stack>
-      </Box>
+    <Box sx={{ width: '100%' }}>
+      <Box
+        sx={{
+          px: 0.2,
+          py: 0.25,
+        }}
+      >
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: 1.2,
+            alignItems: 'flex-start',
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '1.12rem', fontWeight: 700, color: '#1d3148', lineHeight: 1.45 }}>
+              {result.analysis.core_message || 'Chưa có thông điệp chính.'}
+            </Typography>
+            <Chip
+              size="small"
+              label={result.analysis.value_proposition || result.analysis.target_audience || 'General audience'}
+              sx={{
+                mt: 0.7,
+                height: 32,
+                borderRadius: 999,
+                bgcolor: '#e8edf4',
+                color: '#50709b',
+                '& .MuiChip-label': { fontSize: '0.92rem', px: 1 },
+              }}
+            />
+            <Stack direction="row" spacing={0.7} flexWrap="wrap" sx={{ mt: 0.7, rowGap: 0.65 }}>
+              <Chip
+                size="small"
+                label={result.analysis.primary_cta || 'No CTA'}
+                sx={{
+                  bgcolor: '#e5efd8',
+                  color: '#47712e',
+                  '& .MuiChip-label': { fontSize: '0.92rem', px: 1 },
+                }}
+              />
+              <Chip
+                size="small"
+                label={`Mục tiêu: ${result.analysis.reader_intent}`}
+                sx={{ '& .MuiChip-label': { fontSize: '0.92rem', px: 1 } }}
+              />
+              <Chip
+                size="small"
+                label={`Giai đoạn: ${result.analysis.funnel_stage}`}
+                sx={{ '& .MuiChip-label': { fontSize: '0.92rem', px: 1 } }}
+              />
+            </Stack>
+          </Box>
 
-      <Box sx={sectionSx}>
-        <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-          Audience Intelligence
-        </Typography>
-        <Typography sx={{ mt: 0.65, fontSize: '0.97rem', lineHeight: 1.62 }}>
-          {result.analysis.target_audience || 'No target audience defined.'}
-        </Typography>
-        <Typography sx={{ mt: 0.85, fontWeight: 700, fontSize: '0.84rem' }}>Pain Points</Typography>
-        <Box component="ul" sx={{ mt: 0.35, mb: 0, pl: 2.3 }}>
-          {result.analysis.audience_pain_points.map((item, index) => (
-            <Typography key={`${item}-${index}`} component="li" sx={{ fontSize: '0.92rem', mb: 0.35 }}>
-              {item}
-            </Typography>
-          ))}
-        </Box>
-        <Typography sx={{ mt: 0.85, fontWeight: 700, fontSize: '0.84rem' }}>Desired Outcomes</Typography>
-        <Box component="ul" sx={{ mt: 0.35, mb: 0, pl: 2.3 }}>
-          {result.analysis.audience_desired_outcomes.map((item, index) => (
-            <Typography key={`${item}-${index}`} component="li" sx={{ fontSize: '0.92rem', mb: 0.35 }}>
-              {item}
-            </Typography>
-          ))}
-        </Box>
-      </Box>
-
-      <Box sx={sectionSx}>
-        <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-          Evidence-backed Insights
-        </Typography>
-        <Typography sx={{ mt: 0.85, fontWeight: 700, fontSize: '0.84rem' }}>Key Takeaways</Typography>
-        <Box component="ul" sx={{ mt: 0.35, mb: 0, pl: 2.3 }}>
-          {result.analysis.key_takeaways.map((item, index) => (
-            <Typography key={`${item}-${index}`} component="li" sx={{ fontSize: '0.92rem', mb: 0.35 }}>
-              {item}
-            </Typography>
-          ))}
-        </Box>
-        <Typography sx={{ mt: 1, fontWeight: 700, fontSize: '0.84rem' }}>Supporting Claims</Typography>
-        <Stack spacing={0.7} sx={{ mt: 0.5 }}>
-          {result.analysis.supporting_claims.map((claim, index) => (
-            <Box
-              key={`${claim.claim}-${index}`}
-              sx={{ borderLeft: '3px solid', borderColor: isDark ? 'rgba(96,165,250,0.6)' : '#93c5fd', pl: 1, py: 0.25 }}
-            >
-              <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{claim.claim}</Typography>
-              <Typography sx={{ mt: 0.4, fontSize: '0.84rem', color: 'text.secondary', whiteSpace: 'pre-wrap' }}>
-                Evidence: {claim.evidence_excerpt}
-              </Typography>
-              <Typography sx={{ mt: 0.35, fontSize: '0.84rem', whiteSpace: 'pre-wrap' }}>
-                {claim.evidence_reason}
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
-      </Box>
-
-      <Box sx={sectionSx}>
-        <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-          Voice Guardrails
-        </Typography>
-        <Typography sx={{ mt: 0.65, fontSize: '0.95rem' }}>
-          Tone: {result.analysis.tone_of_voice || 'No tone specified.'}
-        </Typography>
-        <Box component="ul" sx={{ mt: 0.55, mb: 0, pl: 2.3 }}>
-          {result.analysis.voice_guidelines.map((item, index) => (
-            <Typography key={`${item}-${index}`} component="li" sx={{ fontSize: '0.92rem', mb: 0.35 }}>
-              {item}
-            </Typography>
-          ))}
-        </Box>
-      </Box>
-
-      <Box sx={sectionSx}>
-        <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-          Conversion Guidance
-        </Typography>
-        <Typography sx={{ mt: 0.65, fontWeight: 700, fontSize: '0.9rem' }}>
-          Primary CTA
-        </Typography>
-        <Typography sx={{ mt: 0.3, whiteSpace: 'pre-wrap' }}>
-          {result.analysis.primary_cta}
-        </Typography>
-        <Typography sx={{ mt: 0.8, fontWeight: 700, fontSize: '0.9rem' }}>
-          Why this CTA
-        </Typography>
-        <Typography sx={{ mt: 0.3, whiteSpace: 'pre-wrap' }}>
-          {result.analysis.cta_reasoning}
-        </Typography>
-        <Typography sx={{ mt: 0.8, fontWeight: 700, fontSize: '0.9rem' }}>
-          Risk Flags
-        </Typography>
-        <Box component="ul" sx={{ mt: 0.35, mb: 0, pl: 2.3 }}>
-          {result.analysis.risk_flags.map((item, index) => (
-            <Typography key={`${item}-${index}`} component="li" sx={{ fontSize: '0.92rem', mb: 0.35 }}>
-              {item}
-            </Typography>
-          ))}
         </Box>
       </Box>
 
       <Box
         sx={{
-          px: 0.2,
-          py: 1.2,
-          borderLeft: '3px solid',
-          borderColor: hasLowConfidence || hasMissingInfo ? 'rgba(245,158,11,0.75)' : 'transparent',
-          bgcolor: hasLowConfidence || hasMissingInfo ? 'rgba(245,158,11,0.08)' : 'transparent',
+          mt: 0.9,
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 74px' },
+          gap: 1,
+          alignItems: 'start',
         }}
       >
-        <Typography sx={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>
-          Reliability
-        </Typography>
-        <Stack direction="row" spacing={0.8} sx={{ mt: 0.65, alignItems: 'center' }}>
-          <Chip
-            size="small"
-            color={hasLowConfidence ? 'warning' : 'success'}
-            label={`Confidence: ${result.analysis.confidence_score.toFixed(2)}`}
-          />
-          {(hasLowConfidence || hasMissingInfo) ? (
-            <Chip size="small" color="warning" label="Needs review" />
-          ) : (
-            <Chip size="small" color="success" label="Reliable" />
-          )}
-        </Stack>
-        <Typography sx={{ mt: 0.85, fontWeight: 700, fontSize: '0.9rem' }}>
-          Missing Information
-        </Typography>
-        <Box component="ul" sx={{ mt: 0.35, mb: 0, pl: 2.3 }}>
-          {result.analysis.missing_information.map((item, index) => (
-            <Typography key={`${item}-${index}`} component="li" sx={{ fontSize: '0.92rem', mb: 0.35 }}>
-              {item}
+        <Box sx={{ border: '1px solid #bcd0ea', borderRadius: 1.2, overflow: 'hidden' }}>
+          <Box
+            sx={{
+              px: 1.1,
+              py: 0.78,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              borderBottom: '1px solid #bcd0ea',
+              borderLeft: activeSectionItem.danger ? '3px solid var(--semantic-risk-text)' : 'none',
+              bgcolor: activeSectionItem.danger ? '#fff6f5' : '#f3f4f6',
+            }}
+          >
+            <Box
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: 999,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: activeSectionItem.iconBg,
+                color: 'var(--semantic-text-primary)',
+              }}
+            >
+              {activeSectionItem.icon}
+            </Box>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: '#18375b' }}>
+              {activeSectionItem.label}
             </Typography>
-          ))}
+          </Box>
+          {renderActiveSection()}
+        </Box>
+
+        <Box
+          sx={{
+            order: { xs: -1, md: 0 },
+            alignSelf: 'start',
+            borderRadius: 1.2,
+            border: '1px solid #bcd0ea',
+            bgcolor: '#f8fafc',
+            py: { xs: 0.7, md: 0.8 },
+            px: { xs: 0.7, md: 0.52 },
+            display: 'flex',
+            flexDirection: { xs: 'row', md: 'column' },
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.65,
+          }}
+        >
+          {sectionItems.map((section) => {
+            const isActive = section.key === activeSection;
+            return (
+              <Tooltip key={section.key} title={section.label} placement="left" arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => setActiveSection(section.key)}
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 1.1,
+                    border: '1px solid',
+                    borderColor: isActive
+                      ? section.danger
+                        ? '#d3505b'
+                        : '#5850d5'
+                      : '#bdd0e7',
+                    bgcolor: isActive
+                      ? section.danger
+                        ? '#fff3f2'
+                        : '#eef0ff'
+                      : '#f8fafc',
+                    color: isActive
+                      ? section.danger
+                        ? '#d3505b'
+                        : '#5850d5'
+                      : '#5f7ca0',
+                    '&:hover': {
+                      bgcolor: section.danger ? '#fff3f2' : '#eef0ff',
+                    },
+                  }}
+                >
+                  {section.icon}
+                </IconButton>
+              </Tooltip>
+            );
+          })}
         </Box>
       </Box>
-    </Stack>
+    </Box>
   );
 };
 
@@ -838,6 +1264,25 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
           ? 'Publish to Facebook'
           : 'Publish to LinkedIn'
     : '';
+  const analysisReliability = campaignResult
+    ? (() => {
+        const level = getReliabilityLevel(campaignResult.analysis.confidence_score);
+        const confidencePercent = Math.round(campaignResult.analysis.confidence_score * 100);
+        if (level === 'high') {
+          return { text: 'Cao', color: '#47712e', bg: '#e5efd8', border: '#47712e', percent: confidencePercent };
+        }
+        if (level === 'medium') {
+          return {
+            text: 'Trung bình',
+            color: '#9a6700',
+            bg: '#fdf4d7',
+            border: '#d0a84b',
+            percent: confidencePercent,
+          };
+        }
+        return { text: 'Thấp', color: '#b42318', bg: '#ffeceb', border: '#fda29b', percent: confidencePercent };
+      })()
+    : null;
 
   useEffect(() => {
     setPublishedPosts({});
@@ -1057,28 +1502,46 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
                 flexWrap: 'wrap',
               }}
             >
-              <Stack direction="row" gap={0.75} flexWrap="wrap" alignItems="center">
-                <Chip
-                  size="small"
-                  label={campaignResult.meta.selected_model || 'Unknown model'}
-                  sx={{
-                    borderRadius: 999,
-                    height: 28,
-                    fontWeight: 700,
-                    bgcolor: isDark ? 'rgba(59,130,246,0.18)' : '#e7f1ff',
-                    color: isDark ? '#bfdbfe' : '#1d4e89',
-                  }}
-                />
-                <Chip
-                  size="small"
-                  label={formatUpdatedLabel(campaignResult.meta.updated_at)}
-                  sx={{
-                    borderRadius: 999,
-                    height: 28,
-                    bgcolor: isDark ? 'rgba(148,163,184,0.16)' : '#eef2f7',
-                    color: isDark ? '#cbd5e1' : '#334155',
-                  }}
-                />
+              <Stack spacing={0.5} alignItems="flex-start">
+                <Stack direction="row" gap={0.75} flexWrap="wrap" alignItems="center">
+                  <Chip
+                    size="small"
+                    label={campaignResult.meta.selected_model || 'Unknown model'}
+                    sx={{
+                      borderRadius: 999,
+                      height: 28,
+                      fontWeight: 700,
+                      bgcolor: isDark ? 'rgba(59,130,246,0.18)' : '#e7f1ff',
+                      color: isDark ? '#bfdbfe' : '#1d4e89',
+                    }}
+                  />
+                  <Chip
+                    size="small"
+                    label={formatUpdatedLabel(campaignResult.meta.updated_at)}
+                    sx={{
+                      borderRadius: 999,
+                      height: 28,
+                      bgcolor: isDark ? 'rgba(148,163,184,0.16)' : '#eef2f7',
+                      color: isDark ? '#cbd5e1' : '#334155',
+                    }}
+                  />
+                </Stack>
+                {activeTab === 0 && analysisReliability ? (
+                  <Chip
+                    size="small"
+                    label={`Độ tin cậy ${analysisReliability.text} (${analysisReliability.percent}%)`}
+                    sx={{
+                      height: 24,
+                      borderRadius: 1.1,
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      color: analysisReliability.color,
+                      bgcolor: analysisReliability.bg,
+                      border: '1px solid',
+                      borderColor: analysisReliability.border,
+                    }}
+                  />
+                ) : null}
               </Stack>
               <Stack
                 direction="row"
@@ -1189,7 +1652,7 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
               </Paper>
             ) : null}
 
-            {activeTab === 0 ? renderAnalysisPanel(campaignResult, isDark) : renderSocialPanel(socialPost, activeTab)}
+            {activeTab === 0 ? <ContentBriefDashboard result={campaignResult} /> : renderSocialPanel(socialPost, activeTab)}
           </Box>
         )}
       </Box>
