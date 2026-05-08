@@ -45,9 +45,9 @@ async def lifespan(app: FastAPI):
 
 
 _default_cors_origins = (
-    "http://localhost:5173,"
+    "http://103.82.192.43:5173,"
     "http://127.0.0.1:5173,"
-    "http://localhost:3000,"
+    "http://103.82.192.43:3000,"
     "http://127.0.0.1:3000"
 )
 _cors_origins = [
@@ -59,7 +59,7 @@ _cors_origin_regex = os.getenv(
     "CORS__ALLOW_ORIGIN_REGEX",
     (
         r"https?://("
-        r"localhost|127\.0\.0\.1|0\.0\.0\.0|"
+        r"103\.82\.192\.43|127\.0\.0\.1|0\.0\.0\.0|"
         r"192\.168\.\d{1,3}\.\d{1,3}|"
         r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
         r"172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}"
@@ -97,7 +97,7 @@ def _error_response(*, status_code: int, message: str) -> JSONResponse:
 async def _handle_request_validation_error(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
-    logger.warning(
+    logger.warning( 
         "request_validation_failed",
         path=request.url.path,
         method=request.method,

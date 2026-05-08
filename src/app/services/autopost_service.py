@@ -45,10 +45,12 @@ class CreateAutopostJobInput(BaseModel):
     user_id: str
     project_id: str
     platform: str
-    keyword: str
+    keyword: str | None = None
     scheduled_at: datetime
     publish_mode: str = "schedule"
     page_id: str | None = None
+    source_mode: str = "keyword"
+    content: str | None = None
 
 
 class ListAutopostJobsInput(BaseModel):
@@ -98,6 +100,10 @@ class AutopostService(BaseModel):
     @staticmethod
     def _normalize_platform(value: str | None) -> str:
         return (value or "").strip().lower()
+
+    @staticmethod
+    def _normalize_source_mode(value: str | None) -> str:
+        return (value or "").strip().lower() or "keyword"
 
     def _resolve_user_timezone(self, user: User) -> str:
         timezone_value = (user.timezone or "").strip()
@@ -184,6 +190,178 @@ class AutopostService(BaseModel):
             ),
         )
 
+    def _publish_ready_job(
+        self,
+        *,
+        session,
+        job: AutopostJob,
+        final_text: str,
+    ) -> AutopostServiceOutput:
+        if job.platform == "facebook":
+            if job.scheduled_at <= self._utc_now():
+                publish_result = self._social_publish_service.publish(
+                    SocialPublishInput(
+                        user_id=job.user_id,
+                        platform="facebook",
+                        content=final_text,
+                        page_id=(job.page_id or "").strip(),
+                    )
+                )
+                if not publish_result.status:
+                    status_value = (
+                        "NEEDS_RECONNECT"
+                        if publish_result.error_code == "SOCIAL_TOKEN_EXPIRED"
+                        else "FAILED"
+                    )
+                    self._set_job_status(
+                        session=session,
+                        job=job,
+                        status=status_value,
+                        error_code=publish_result.error_code,
+                        error_message=publish_result.error,
+                    )
+                    return AutopostServiceOutput(
+                        status=False,
+                        error=publish_result.error,
+                        code=publish_result.code,
+                    )
+                payload = (
+                    publish_result.data if isinstance(publish_result.data, dict) else {}
+                )
+                final_job = self._set_job_status(
+                    session=session,
+                    job=job,
+                    status="PUBLISHED",
+                    provider_post_id=str(payload.get("provider_post_id") or "").strip()
+                    or None,
+                    provider_schedule_id=str(
+                        payload.get("provider_schedule_id") or ""
+                    ).strip()
+                    or None,
+                    error_code=None,
+                    error_message=None,
+                )
+                return AutopostServiceOutput(status=True, data=final_job, code=200)
+
+            schedule_result = self._social_publish_service.schedule_facebook(
+                user_id=job.user_id,
+                content=final_text,
+                page_id=(job.page_id or "").strip(),
+                scheduled_at=job.scheduled_at,
+            )
+            if not schedule_result.status:
+                status_value = (
+                    "NEEDS_RECONNECT"
+                    if schedule_result.error_code == "SOCIAL_TOKEN_EXPIRED"
+                    else "FAILED"
+                )
+                self._set_job_status(
+                    session=session,
+                    job=job,
+                    status=status_value,
+                    error_code=schedule_result.error_code,
+                    error_message=schedule_result.error,
+                )
+                return AutopostServiceOutput(
+                    status=False,
+                    error=schedule_result.error,
+                    code=schedule_result.code,
+                )
+            payload = (
+                schedule_result.data if isinstance(schedule_result.data, dict) else {}
+            )
+            final_job = self._set_job_status(
+                session=session,
+                job=job,
+                status="SCHEDULED",
+                provider_post_id=str(payload.get("provider_post_id") or "").strip()
+                or None,
+                provider_schedule_id=str(payload.get("provider_schedule_id") or "").strip()
+                or None,
+                error_code=None,
+                error_message=None,
+            )
+            return AutopostServiceOutput(status=True, data=final_job, code=200)
+
+        # LinkedIn uses internal scheduler.
+        final_status = "PUBLISHED" if job.scheduled_at <= self._utc_now() else "SCHEDULED"
+        if final_status == "SCHEDULED":
+            final_job = self._set_job_status(
+                session=session,
+                job=job,
+                status="SCHEDULED",
+                error_code=None,
+                error_message=None,
+            )
+            return AutopostServiceOutput(status=True, data=final_job, code=200)
+        publish_result = self._social_publish_service.publish(
+            SocialPublishInput(
+                user_id=job.user_id,
+                platform="linkedin",
+                content=final_text,
+            )
+        )
+        if not publish_result.status:
+            status_value = (
+                "NEEDS_RECONNECT"
+                if publish_result.error_code == "SOCIAL_TOKEN_EXPIRED"
+                else "FAILED"
+            )
+            updated = self._set_job_status(
+                session=session,
+                job=job,
+                status=status_value,
+                error_code=publish_result.error_code,
+                error_message=publish_result.error,
+            )
+            return AutopostServiceOutput(
+                status=False,
+                data=updated,
+                error=publish_result.error,
+                code=publish_result.code,
+            )
+        payload = (
+            publish_result.data if isinstance(publish_result.data, dict) else {}
+        )
+        updated = self._set_job_status(
+            session=session,
+            job=job,
+            status="PUBLISHED",
+            provider_post_id=str(payload.get("provider_post_id") or "").strip() or None,
+            provider_schedule_id=str(payload.get("provider_schedule_id") or "").strip()
+            or None,
+            error_code=None,
+            error_message=None,
+        )
+        if updated is None:
+            return AutopostServiceOutput(
+                status=False, error="Job not found.", code=404
+            )
+        conversation = self._upsert_single_project_conversation(
+            project_id=job.project_id, session=session
+        )
+        run = self._create_run(
+            session=session,
+            project_id=job.project_id,
+            conversation_id=conversation.id or "",
+            status="completed",
+            request_payload={
+                "trigger": "autopost_publish",
+                "job_id": job.id,
+                "platform": "linkedin",
+            },
+            response_payload=payload,
+            source_url=None,
+            platforms=["linkedin"],
+        )
+        updated = self._set_job_status(
+            session=session,
+            job=updated,
+            status=updated.status,
+            conversation_run_id=run.id,
+        )
+        return AutopostServiceOutput(status=True, data=updated, code=200)
+
     def create_job(self, inputs: CreateAutopostJobInput) -> AutopostServiceOutput:
         try:
             platform = self._normalize_platform(inputs.platform)
@@ -193,13 +371,29 @@ class AutopostService(BaseModel):
                     error="Unsupported platform. Allowed: linkedin, facebook.",
                     code=400,
                 )
-            keyword = inputs.keyword.strip()
-            if not keyword:
+            source_mode = self._normalize_source_mode(inputs.source_mode)
+            if source_mode not in {"keyword", "content"}:
                 return AutopostServiceOutput(
                     status=False,
-                    error="Keyword must not be blank.",
+                    error="Unsupported source mode. Allowed: keyword, content.",
                     code=400,
                 )
+            keyword = (inputs.keyword or "").strip()
+            manual_content = (inputs.content or "").strip()
+            if source_mode == "keyword" and not keyword:
+                return AutopostServiceOutput(
+                    status=False,
+                    error="Keyword must not be blank when source_mode=keyword.",
+                    code=400,
+                )
+            if source_mode == "content" and not manual_content:
+                return AutopostServiceOutput(
+                    status=False,
+                    error="Content must not be blank when source_mode=content.",
+                    code=400,
+                )
+            if source_mode == "content" and not keyword:
+                keyword = f"Manual content ({platform})"
             scheduled_at = self._ensure_utc(inputs.scheduled_at)
             now = self._utc_now()
             publish_mode = (inputs.publish_mode or "").strip().lower() or "schedule"
@@ -260,6 +454,8 @@ class AutopostService(BaseModel):
                         scheduled_at=scheduled_at,
                         status="QUEUED",
                         page_id=(inputs.page_id or "").strip() or None,
+                        draft_content=manual_content or None,
+                        final_content=manual_content or None,
                         retry_count=0,
                     ),
                 )
@@ -598,6 +794,47 @@ class AutopostService(BaseModel):
                     return AutopostServiceOutput(
                         status=False, error="Project not found.", code=404
                     )
+                prepared_content = (job.final_content or job.draft_content or "").strip()
+                if prepared_content:
+                    run_conversation = self._upsert_single_project_conversation(
+                        project_id=job.project_id, session=session
+                    )
+                    run = self._create_run(
+                        session=session,
+                        project_id=job.project_id,
+                        conversation_id=run_conversation.id or "",
+                        status="completed",
+                        request_payload={
+                            "trigger": "autopost_manual",
+                            "job_id": job.id,
+                            "platform": job.platform,
+                            "keyword": job.keyword,
+                            "scheduled_at": job.scheduled_at.isoformat(),
+                        },
+                        response_payload={"selected_post_text": prepared_content},
+                        source_url=project.source_url,
+                        platforms=[job.platform],
+                    )
+                    updated_job = self._set_job_status(
+                        session=session,
+                        job=job,
+                        status="READY",
+                        draft_content=prepared_content,
+                        final_content=prepared_content,
+                        conversation_run_id=run.id,
+                        error_code=None,
+                        error_message=None,
+                    )
+                    if updated_job is None:
+                        return AutopostServiceOutput(
+                            status=False, error="Job not found.", code=404
+                        )
+                    return self._publish_ready_job(
+                        session=session,
+                        job=updated_job,
+                        final_text=prepared_content,
+                    )
+
                 if not (project.source_url or "").strip():
                     self._set_job_status(
                         session=session,
@@ -730,124 +967,11 @@ class AutopostService(BaseModel):
                     return AutopostServiceOutput(
                         status=False, error="Job not found.", code=404
                     )
-                job = updated_job
-
-                if job.platform == "facebook":
-                    if job.scheduled_at <= self._utc_now():
-                        publish_result = self._social_publish_service.publish(
-                            SocialPublishInput(
-                                user_id=job.user_id,
-                                platform="facebook",
-                                content=final_text,
-                                page_id=(job.page_id or "").strip(),
-                            )
-                        )
-                        if not publish_result.status:
-                            status_value = (
-                                "NEEDS_RECONNECT"
-                                if publish_result.error_code == "SOCIAL_TOKEN_EXPIRED"
-                                else "FAILED"
-                            )
-                            self._set_job_status(
-                                session=session,
-                                job=job,
-                                status=status_value,
-                                error_code=publish_result.error_code,
-                                error_message=publish_result.error,
-                            )
-                            return AutopostServiceOutput(
-                                status=False,
-                                error=publish_result.error,
-                                code=publish_result.code,
-                            )
-                        payload = (
-                            publish_result.data
-                            if isinstance(publish_result.data, dict)
-                            else {}
-                        )
-                        final_job = self._set_job_status(
-                            session=session,
-                            job=job,
-                            status="PUBLISHED",
-                            provider_post_id=str(
-                                payload.get("provider_post_id") or ""
-                            ).strip()
-                            or None,
-                            provider_schedule_id=str(
-                                payload.get("provider_schedule_id") or ""
-                            ).strip()
-                            or None,
-                            error_code=None,
-                            error_message=None,
-                        )
-                        return AutopostServiceOutput(
-                            status=True, data=final_job, code=200
-                        )
-
-                    schedule_result = self._social_publish_service.schedule_facebook(
-                        user_id=job.user_id,
-                        content=final_text,
-                        page_id=(job.page_id or "").strip(),
-                        scheduled_at=job.scheduled_at,
-                    )
-                    if not schedule_result.status:
-                        status_value = (
-                            "NEEDS_RECONNECT"
-                            if schedule_result.error_code == "SOCIAL_TOKEN_EXPIRED"
-                            else "FAILED"
-                        )
-                        self._set_job_status(
-                            session=session,
-                            job=job,
-                            status=status_value,
-                            error_code=schedule_result.error_code,
-                            error_message=schedule_result.error,
-                        )
-                        return AutopostServiceOutput(
-                            status=False,
-                            error=schedule_result.error,
-                            code=schedule_result.code,
-                        )
-                    payload = (
-                        schedule_result.data
-                        if isinstance(schedule_result.data, dict)
-                        else {}
-                    )
-                    final_job = self._set_job_status(
-                        session=session,
-                        job=job,
-                        status="SCHEDULED",
-                        provider_post_id=str(
-                            payload.get("provider_post_id") or ""
-                        ).strip()
-                        or None,
-                        provider_schedule_id=str(
-                            payload.get("provider_schedule_id") or ""
-                        ).strip()
-                        or None,
-                        error_code=None,
-                        error_message=None,
-                    )
-                    return AutopostServiceOutput(status=True, data=final_job, code=200)
-
-                # LinkedIn uses internal scheduler.
-                final_status = (
-                    "PUBLISHED" if job.scheduled_at <= self._utc_now() else "SCHEDULED"
+                return self._publish_ready_job(
+                    session=session,
+                    job=updated_job,
+                    final_text=final_text,
                 )
-                if final_status == "SCHEDULED":
-                    final_job = self._set_job_status(
-                        session=session,
-                        job=job,
-                        status="SCHEDULED",
-                        error_code=None,
-                        error_message=None,
-                    )
-                    return AutopostServiceOutput(status=True, data=final_job, code=200)
-
-            # Immediate linkedin publish path after session commit.
-            return self.publish_linkedin_job(
-                ProcessAutopostJobInput(job_id=inputs.job_id)
-            )
         except Exception as exc:
             logger.exception(
                 "autopost_process_job_failed", error=redact_message(str(exc))

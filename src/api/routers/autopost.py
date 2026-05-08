@@ -100,6 +100,8 @@ async def create_job(
                     scheduled_at=input.scheduled_at,
                     publish_mode=input.publish_mode,
                     page_id=input.page_id,
+                    source_mode=input.source_mode,
+                    content=input.content,
                 ),
             ),
         )

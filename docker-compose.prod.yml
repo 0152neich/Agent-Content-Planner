@@ -1,0 +1,122 @@
+networks:
+  app-tier:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    networks:
+      - app-tier
+
+  postgres:
+    image: postgres:17.0-alpine
+    restart: always
+    ports:
+      - 15432:5432
+    networks:
+      - app-tier
+    environment:
+      POSTGRES_USER: ${POSTGRES__USER}
+      POSTGRES_PASSWORD: ${POSTGRES__PASSWORD}
+      POSTGRES_DB: ${POSTGRES__DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES__USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && uvicorn main:app --host 0.0.0.0 --port 8000"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
+      CELERY__BROKER_URL: ${CELERY__BROKER_URL}
+      CELERY__RESULT_BACKEND: ${CELERY__RESULT_BACKEND}
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./uploads:/home/Agent-Content-Planner/uploads
+    ports:
+      - 8000:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-tier
+
+  worker:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && celery -A app.autopost_celery.celery_app worker --loglevel=INFO"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./uploads:/home/Agent-Content-Planner/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-tier
+
+  beat:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && celery -A app.autopost_celery.celery_app beat --loglevel=INFO"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
+      CELERY__BROKER_URL: ${CELERY__BROKER_URL}
+      CELERY__RESULT_BACKEND: ${CELERY__RESULT_BACKEND}
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./uploads:/home/Agent-Content-Planner/uploads
+    depends_on:
+      redis:
+        condition: service_started
+      worker:
+        condition: service_started
+    networks:
+      - app-tier
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    ports:
+      - 5173:80
+    depends_on:
+      - backend
+    networks:
+      - app-tier

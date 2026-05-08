@@ -19,14 +19,18 @@ ALLOWED_AUTPOST_STATUSES = {
     "CANCELLED",
 }
 
+ALLOWED_SOURCE_MODES = {"keyword", "content"}
+
 
 class AutopostJobCreateAPIInput(BaseModel):
     project_id: str = Field(..., min_length=1, max_length=64)
     platform: str = Field(..., min_length=1, max_length=32)
-    keyword: str = Field(..., min_length=1)
+    keyword: str | None = Field(default=None)
     scheduled_at: datetime
     publish_mode: str = Field(default="schedule", min_length=1, max_length=16)
     page_id: str | None = Field(default=None, max_length=128)
+    source_mode: str = Field(default="keyword", min_length=1, max_length=16)
+    content: str | None = None
 
     @field_validator("platform")
     @classmethod
@@ -38,11 +42,11 @@ class AutopostJobCreateAPIInput(BaseModel):
 
     @field_validator("keyword")
     @classmethod
-    def validate_keyword(cls, value: str) -> str:
+    def validate_keyword(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         normalized = value.strip()
-        if not normalized:
-            raise ValueError("Keyword must not be blank.")
-        return normalized
+        return normalized or None
 
     @field_validator("page_id")
     @classmethod
@@ -67,8 +71,28 @@ class AutopostJobCreateAPIInput(BaseModel):
             raise ValueError("Unsupported publish_mode. Allowed: now, schedule.")
         return normalized
 
+    @field_validator("source_mode")
+    @classmethod
+    def validate_source_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ALLOWED_SOURCE_MODES:
+            raise ValueError("Unsupported source_mode. Allowed: keyword, content.")
+        return normalized
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
     @model_validator(mode="after")
     def validate_platform_requirements(self) -> "AutopostJobCreateAPIInput":
+        if self.source_mode == "keyword" and not self.keyword:
+            raise ValueError("keyword is required when source_mode=keyword.")
+        if self.source_mode == "content" and not self.content:
+            raise ValueError("content is required when source_mode=content.")
         if self.platform == "facebook" and not self.page_id:
             raise ValueError("page_id is required for facebook scheduling.")
         return self

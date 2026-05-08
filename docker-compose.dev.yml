@@ -18,7 +18,7 @@ services:
     image: postgres:17.0-alpine
     restart: always
     ports:
-      - 5432:5432
+      - 15432:5432
     networks:
       - app-tier
     environment:
@@ -45,8 +45,8 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES__HOST: postgres
-      POSTGRES__PORT: 5432
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
     volumes:
       - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
@@ -70,10 +70,10 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES__HOST: postgres
-      POSTGRES__PORT: 5432
-      CELERY__BROKER_URL: redis://redis:6379/0
-      CELERY__RESULT_BACKEND: redis://redis:6379/1
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
+      CELERY__BROKER_URL: ${CELERY__BROKER_URL}
+      CELERY__RESULT_BACKEND: ${CELERY__RESULT_BACKEND}
     volumes:
       - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
@@ -95,10 +95,10 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES__HOST: postgres
-      POSTGRES__PORT: 5432
-      CELERY__BROKER_URL: redis://redis:6379/0
-      CELERY__RESULT_BACKEND: redis://redis:6379/1
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
+      CELERY__BROKER_URL: ${CELERY__BROKER_URL}
+      CELERY__RESULT_BACKEND: ${CELERY__RESULT_BACKEND}
     volumes:
       - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
@@ -115,9 +115,8 @@ services:
     restart: unless-stopped
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
-    environment:
-      CHOKIDAR_USEPOLLING: "true"
-      VITE_API_BASE_URL: http://localhost:8000/api/v1
+    env_file:
+      - ./frontend/.env
     volumes:
       - ./frontend:/app
       - /app/node_modules
