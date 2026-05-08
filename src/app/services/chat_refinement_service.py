@@ -86,6 +86,26 @@ class ChatRefinementService(BaseModel):
         )
         return sha256(payload.encode("utf-8")).hexdigest()
 
+    @staticmethod
+    def _parse_snapshot(
+        payload: dict[str, object] | None,
+        *,
+        owner_user_id: str,
+        conversation_id: str,
+    ) -> ContentPlanSnapshot | None:
+        if payload is None:
+            return None
+        try:
+            return ContentPlanSnapshot.from_payload(payload)
+        except Exception as exc:
+            logger.warning(
+                "chat_refinement_snapshot_invalid",
+                owner_user_id=owner_user_id,
+                conversation_id=conversation_id,
+                error=redact_message(str(exc)),
+            )
+            return None
+
     def _apply_rate_limit(self, owner_user_id: str) -> ChatRefinementOutput | None:
         crew_cfg = Settings().crew
         if crew_cfg.rate_limit_max_requests <= 0:
@@ -212,10 +232,10 @@ class ChatRefinementService(BaseModel):
             code=500,
         )
         try:
-            snapshot = (
-                ContentPlanSnapshot.from_payload(inputs.snapshot)
-                if inputs.snapshot is not None
-                else None
+            snapshot = self._parse_snapshot(
+                inputs.snapshot,
+                owner_user_id=inputs.owner_user_id,
+                conversation_id=inputs.conversation_id,
             )
             intent = self._intent_router.route(
                 prompt=inputs.prompt,

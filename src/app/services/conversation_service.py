@@ -7,6 +7,7 @@ from typing import Any
 from api.helpers.exception_handler import to_user_error_message
 from app.services.chat_refinement_service import ChatRefinementService
 from app.services.chat_contracts import ChatRefinementInput, IntentContext
+from app.workflows.chat_snapshot import ContentPlanSnapshot
 from infra.database.pg import SQLDatabase
 from infra.database.pg.schemas import (
     Conversation,
@@ -193,6 +194,25 @@ class ConversationService(BaseModel):
             fallback="I could not complete this request. Please try again.",
         )
 
+    @staticmethod
+    def _normalize_snapshot(
+        payload: dict[str, Any] | None,
+        *,
+        run_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        if not isinstance(payload, dict) or not payload:
+            return None
+        try:
+            snapshot = ContentPlanSnapshot.from_payload(payload)
+            return snapshot.model_dump(mode="json")
+        except Exception as exc:
+            logger.warning(
+                "invalid_content_plan_snapshot_payload",
+                run_id=run_id,
+                error=redact_message(str(exc)),
+            )
+            return None
+
     @classmethod
     def _build_assistant_failure_text(cls, error: str | None, code: int) -> str:
         if code >= 500:
@@ -290,8 +310,11 @@ class ConversationService(BaseModel):
         ordered_runs = sorted(runs, key=self._run_sort_key, reverse=True)
         for run in ordered_runs:
             payload = dict(run.response_payload or {})
-            snapshot = payload.get("content_plan_snapshot")
-            if isinstance(snapshot, dict):
+            snapshot = self._normalize_snapshot(
+                payload.get("content_plan_snapshot"),
+                run_id=run.id,
+            )
+            if snapshot is not None:
                 return snapshot
         return None
 
@@ -1061,6 +1084,14 @@ class ConversationService(BaseModel):
         self, inputs: PersistContentPlanSnapshotInput
     ) -> ConversationServiceOutput:
         try:
+            normalized_snapshot = self._normalize_snapshot(inputs.content_plan_snapshot)
+            if normalized_snapshot is None:
+                return ConversationServiceOutput(
+                    status=False,
+                    data=None,
+                    error="Invalid content_plan_snapshot payload.",
+                    code=400,
+                )
             with self._db.get_session() as session:
                 project = self._get_project_owned(
                     session=session,
@@ -1096,7 +1127,7 @@ class ConversationService(BaseModel):
                     )
 
                 now = self._now_utc()
-                social_posts = inputs.content_plan_snapshot.get("social_posts", [])
+                social_posts = normalized_snapshot.get("social_posts", [])
                 platforms: list[str] = []
                 if isinstance(social_posts, list):
                     for post in social_posts:
@@ -1118,7 +1149,7 @@ class ConversationService(BaseModel):
                             "trigger": "content_plan",
                         },
                         response_payload={
-                            "content_plan_snapshot": inputs.content_plan_snapshot,
+                            "content_plan_snapshot": normalized_snapshot,
                         },
                         status="completed",
                         started_at=now,
@@ -1187,6 +1218,14 @@ class ConversationService(BaseModel):
         self, inputs: SaveRunSnapshotInput
     ) -> ConversationServiceOutput:
         try:
+            normalized_snapshot = self._normalize_snapshot(inputs.content_plan_snapshot)
+            if normalized_snapshot is None:
+                return ConversationServiceOutput(
+                    status=False,
+                    data=None,
+                    error="Invalid content_plan_snapshot payload.",
+                    code=400,
+                )
             with self._db.get_session() as session:
                 run = self._db.get_conversation_run_by_id(
                     session=session, id=inputs.run_id
@@ -1209,7 +1248,7 @@ class ConversationService(BaseModel):
                     )
 
                 response_payload = dict(run.response_payload or {})
-                response_payload["content_plan_snapshot"] = inputs.content_plan_snapshot
+                response_payload["content_plan_snapshot"] = normalized_snapshot
 
                 updated_model = ConversationRun(
                     id=run.id,
@@ -1280,10 +1319,13 @@ class ConversationService(BaseModel):
                         code=404,
                     )
 
-                snapshot = dict(source_run.response_payload or {}).get(
-                    "content_plan_snapshot"
+                snapshot = self._normalize_snapshot(
+                    dict(source_run.response_payload or {}).get(
+                        "content_plan_snapshot"
+                    ),
+                    run_id=source_run.id,
                 )
-                if not isinstance(snapshot, dict) or not snapshot:
+                if snapshot is None:
                     return ConversationServiceOutput(
                         status=False,
                         data=None,
