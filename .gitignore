@@ -56,3 +56,4 @@ frontend/.vite/
 .lock
 db.db
 *.log
+celerybeat-schedule
