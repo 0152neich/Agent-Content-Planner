@@ -354,12 +354,12 @@ const WelcomeFeature: React.FC = () => {
                 maxWidth: 780,
               }}
             >
-              {shouldShowCreateForm ? 'Welcome. Let’s optimize your website together.' : 'Select your project'}
+              {shouldShowCreateForm ? 'Welcome. Let’s optimize your content workflow together.' : 'Select your project'}
             </Typography>
 
             <Typography sx={{ mt: 1.8, color: '#4f5f74', maxWidth: 720, fontSize: { xs: '1rem', md: '1.08rem' } }}>
               {shouldShowCreateForm
-                ? 'We will use your website to improve AI search visibility, strengthen SEO, and generate relevant content ideas.'
+                ? 'Use Auto-Post to plan smarter, boost visibility across social platforms, and generate relevant post ideas faster.'
                 : 'We found projects in your account. Pick one to continue in workspace.'}
             </Typography>
 

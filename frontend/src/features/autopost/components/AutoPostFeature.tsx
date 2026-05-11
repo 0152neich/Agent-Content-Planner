@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Box,
   Button,
   Chip,
@@ -10,7 +9,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  IconButton,
   InputAdornment,
   InputLabel,
   Menu,
@@ -23,8 +21,10 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded';
+import FacebookIcon from '@mui/icons-material/Facebook';
+import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import ManageSearchRoundedIcon from '@mui/icons-material/ManageSearchRounded';
-import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import { useNavigate } from '@tanstack/react-router';
 import { MiniTaskbar } from '@/features/workspace/components/MiniTaskbar';
@@ -116,7 +116,6 @@ const AutoPostFeature: React.FC = () => {
 
   const {
     user,
-    project,
     projects,
     activeProjectId,
     jobs,
@@ -124,7 +123,6 @@ const AutoPostFeature: React.FC = () => {
     feedFilter,
     loading,
     submitting,
-    error,
     keyword,
     platform,
     publishMode,
@@ -148,7 +146,6 @@ const AutoPostFeature: React.FC = () => {
     retryJob,
     cancelJob,
     scheduleFromContent,
-    needsReconnect,
     switchProject,
   } = useAutoPostState();
 
@@ -160,6 +157,20 @@ const AutoPostFeature: React.FC = () => {
     dialogScheduledDate === minScheduleDate ? minScheduleTime : undefined;
   const scheduleSummaryText = formatScheduleSummary(scheduledDate, scheduledTime);
   const dialogScheduleSummaryText = formatScheduleSummary(dialogScheduledDate, dialogScheduledTime);
+  const topFormFieldSx = {
+    '& .MuiOutlinedInput-root': {
+      height: 48,
+      borderRadius: 1.35,
+      bgcolor: '#ffffff',
+      '& fieldset': { borderColor: '#c5ccd6' },
+      '&:hover fieldset': { borderColor: '#9ea9b7' },
+      '&.Mui-focused fieldset': { borderColor: '#2a70c8', boxShadow: '0 0 0 3px rgba(42,112,200,0.15)' },
+    },
+    '& .MuiInputBase-input': {
+      fontSize: '0.98rem',
+      color: '#202939',
+    },
+  } as const;
 
   const filteredDrafts = React.useMemo(
     () =>
@@ -339,56 +350,45 @@ const AutoPostFeature: React.FC = () => {
           background: 'radial-gradient(circle at 30% 0%, #f7fbff 0%, #eef3f8 58%, #e8edf4 100%)',
         }}
       >
-        <Box sx={{ maxWidth: 920, mx: 'auto', py: { xs: 1, md: 2 } }}>
-          <Typography variant="h3" sx={{ fontWeight: 800, mb: 0.75, fontSize: { xs: '2rem', md: '3rem' } }}>
+        <Box sx={{ maxWidth: 990, mx: 'auto', py: { xs: 1, md: 2 } }}>
+          <Typography
+            variant="h2"
+            sx={{
+              fontWeight: 800,
+              mb: 0.8,
+              fontSize: { xs: '2.8rem', md: '4rem' },
+              letterSpacing: '-0.02em',
+              color: '#2b3548',
+              lineHeight: 1.08,
+            }}
+          >
             Auto-Post
           </Typography>
-          <Typography variant="h6" color="text.secondary" sx={{ mb: 3, fontWeight: 500 }}>
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 3.2,
+              fontWeight: 500,
+              color: '#5a6472',
+              fontSize: { xs: '1.4rem', md: '1.9rem' },
+              lineHeight: 1.3,
+            }}
+          >
             Generate one post per execution, then publish now or schedule.
           </Typography>
 
-          {project ? (
-            <Alert
-              severity="info"
-              sx={{
-                mb: 3,
-                borderRadius: 2,
-                border: '1px solid #b7d8ef',
-                background: 'linear-gradient(180deg, #e8f6ff 0%, #dff2ff 100%)',
-              }}
-            >
-              Active project: <strong>{project.name}</strong>
-            </Alert>
-          ) : null}
-
-          {needsReconnect ? (
-            <Alert
-              severity="warning"
-              action={
-                <Button size="small" onClick={() => setProfileDialogOpen(true)}>
-                  Reconnect
-                </Button>
-              }
-              sx={{ mb: 2.5 }}
-            >
-              Some jobs require social reconnect.
-            </Alert>
-          ) : null}
-
-          {error ? (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          ) : null}
-
-          <Box
+          <Paper
             sx={{
               mb: 4,
-              py: 0.5,
+              p: { xs: 2, md: 3 },
+              borderRadius: 2.6,
+              border: '1px solid #d5dce5',
+              background: '#ffffff',
+              boxShadow: '0 12px 28px rgba(22, 41, 69, 0.08)',
             }}
           >
-            <Stack spacing={2}>
-              <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', color: '#5f6f84' }}>
+            <Stack spacing={2.2}>
+              <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
                 KEYWORD
               </Typography>
               <TextField
@@ -396,20 +396,21 @@ const AutoPostFeature: React.FC = () => {
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 fullWidth
+                sx={topFormFieldSx}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <ManageSearchRoundedIcon fontSize="small" color="action" />
+                      <ManageSearchRoundedIcon sx={{ color: '#9da6b4' }} />
                     </InputAdornment>
                   ),
                 }}
               />
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <Box sx={{ flex: 1 }}>
-                  <Typography sx={{ mb: 0.7, fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', color: '#5f6f84' }}>
+                  <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
                     PROJECT
                   </Typography>
-                  <FormControl fullWidth>
+                  <FormControl fullWidth sx={topFormFieldSx}>
                     <InputLabel id="autopost-project-label">Project</InputLabel>
                     <Select
                       labelId="autopost-project-label"
@@ -426,10 +427,10 @@ const AutoPostFeature: React.FC = () => {
                   </FormControl>
                 </Box>
                 <Box sx={{ flex: 1 }}>
-                  <Typography sx={{ mb: 0.7, fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', color: '#5f6f84' }}>
+                  <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
                     PLATFORM
                   </Typography>
-                  <FormControl fullWidth>
+                  <FormControl fullWidth sx={topFormFieldSx}>
                     <InputLabel id="autopost-platform-label" shrink={false}>
                       {platform ? '' : 'Platform'}
                     </InputLabel>
@@ -445,7 +446,7 @@ const AutoPostFeature: React.FC = () => {
                   </FormControl>
                 </Box>
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                  <Typography sx={{ mb: 0.7, fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', color: '#5f6f84' }}>
+                  <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
                     PUBLISH MODE
                   </Typography>
                   <ToggleButtonGroup
@@ -456,27 +457,29 @@ const AutoPostFeature: React.FC = () => {
                     }}
                     sx={{
                       width: '100%',
-                      maxWidth: 420,
+                      maxWidth: 430,
                       alignSelf: 'stretch',
+                      borderRadius: 1.35,
                       '& .MuiToggleButtonGroup-grouped': {
                         flex: 1,
                         textTransform: 'none',
-                        fontWeight: 700,
-                        borderRadius: 1.8,
-                        borderColor: '#b9cbe0',
-                        color: '#3a4d64',
-                        minHeight: 42,
-                        bgcolor: '#dbe7f4',
+                        fontWeight: 500,
+                        fontSize: '0.95rem',
+                        borderRadius: 1.2,
+                        borderColor: '#c5ccd6',
+                        color: '#334155',
+                        minHeight: 48,
+                        bgcolor: '#f8fafc',
                       },
                       '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
-                        marginLeft: '8px',
-                        borderLeft: '1px solid #b9cbe0',
+                        marginLeft: '6px',
+                        borderLeft: '1px solid #c5ccd6',
                       },
                       '& .MuiToggleButtonGroup-grouped.Mui-selected': {
-                        bgcolor: '#ffffff',
-                        color: '#0f2a49',
-                        borderColor: '#8fb2d8',
-                        boxShadow: '0 0 0 1px rgba(143,178,216,0.35) inset',
+                        bgcolor: '#104f86',
+                        color: '#ffffff',
+                        borderColor: '#104f86',
+                        boxShadow: '0 6px 14px rgba(16, 79, 134, 0.25)',
                       },
                     }}
                   >
@@ -488,7 +491,7 @@ const AutoPostFeature: React.FC = () => {
               {publishMode === 'schedule' ? (
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                   <Box sx={{ flex: 1 }}>
-                    <Typography sx={{ mb: 0.7, fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', color: '#5f6f84' }}>
+                    <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
                       DATE
                     </Typography>
                     <TextField
@@ -497,11 +500,12 @@ const AutoPostFeature: React.FC = () => {
                       value={scheduledDate}
                       onChange={(event) => setScheduledDate(event.target.value)}
                       inputProps={{ min: minScheduleDate }}
+                      sx={topFormFieldSx}
                       InputLabelProps={{ shrink: true }}
                     />
                   </Box>
                   <Box sx={{ flex: 1 }}>
-                    <Typography sx={{ mb: 0.7, fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', color: '#5f6f84' }}>
+                    <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
                       TIME
                     </Typography>
                     <TextField
@@ -510,6 +514,7 @@ const AutoPostFeature: React.FC = () => {
                       value={scheduledTime}
                       onChange={(event) => setScheduledTime(event.target.value)}
                       inputProps={timeMinForSelectedDate ? { min: timeMinForSelectedDate } : undefined}
+                      sx={topFormFieldSx}
                       InputLabelProps={{ shrink: true }}
                     />
                   </Box>
@@ -517,25 +522,30 @@ const AutoPostFeature: React.FC = () => {
               ) : null}
               <Box
                 sx={{
-                  px: 1.25,
-                  py: 1,
-                  borderRadius: 1.5,
-                  border: '1px solid #c8d8ea',
-                  bgcolor: '#edf3fb',
-                  color: '#2a4464',
-                  fontSize: '0.9rem',
+                  px: 1.5,
+                  py: 1.2,
+                  borderRadius: 1.45,
+                  border: '1px solid #e1e6ee',
+                  bgcolor: '#f5f7fa',
+                  color: '#2e3746',
+                  fontSize: '0.95rem',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.8,
                 }}
               >
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#3b82f6', flexShrink: 0 }} />
-                {publishMode === 'now'
-                  ? 'Summary: This post will be published immediately after generation.'
-                  : scheduleSummaryText}
+                <Box sx={{ width: 11, height: 11, borderRadius: '50%', bgcolor: '#66a6e4', flexShrink: 0 }} />
+                <Typography component="span" sx={{ fontWeight: 700 }}>
+                  Summary:
+                </Typography>
+                <Typography component="span" sx={{ fontSize: '0.95rem' }}>
+                  {publishMode === 'now'
+                    ? 'This post will be published immediately after generation.'
+                    : scheduleSummaryText}
+                </Typography>
               </Box>
               {platform === 'facebook' ? (
-                <FormControl fullWidth>
+                <FormControl fullWidth sx={topFormFieldSx}>
                   <InputLabel id="autopost-page-label">Facebook page</InputLabel>
                   <Select
                     labelId="autopost-page-label"
@@ -552,37 +562,37 @@ const AutoPostFeature: React.FC = () => {
                   </Select>
                 </FormControl>
               ) : null}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Box sx={{ borderTop: '1px solid #e2e7ee', pt: 2.1, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button
                   variant="contained"
                   onClick={() => void submitJob()}
                   disabled={submitting}
-                  sx={{ minWidth: 130, borderRadius: 2.5, fontWeight: 700 }}
+                  sx={{
+                    minWidth: 132,
+                    borderRadius: 1.35,
+                    px: 2.6,
+                    py: 0.9,
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    fontSize: '1.05rem',
+                    background: 'linear-gradient(180deg, #0e66c9 0%, #0a4ea2 100%)',
+                    boxShadow: '0 10px 18px rgba(10, 78, 162, 0.34)',
+                    '&:hover': {
+                      background: 'linear-gradient(180deg, #0d5eb8 0%, #0a4694 100%)',
+                    },
+                  }}
                 >
                   {submitting ? 'Submitting...' : 'Execute'}
                 </Button>
               </Box>
             </Stack>
-          </Box>
+          </Paper>
 
-          <Paper
-            sx={{
-              mb: 3,
-              borderRadius: 2.5,
-              border: '1px solid #d5e0ec',
-              p: { xs: 1.5, md: 2 },
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(246,251,255,0.9) 100%)',
-            }}
-          >
-            <Stack spacing={1.4}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  Feed Filter
-                </Typography>
-                <Typography sx={{ fontSize: '0.84rem', color: '#5f6f84' }}>
-                  Lọc nhanh bài nháp và lịch đăng theo nền tảng hoặc trạng thái.
-                </Typography>
-              </Stack>
+          <Box sx={{ mb: 5 }}>
+            <Stack spacing={1.8}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827' }}>
+                Feed Filter
+              </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap">
                 {FEED_FILTER_OPTIONS.map(({ value, label }) => (
                   <Chip
@@ -590,41 +600,43 @@ const AutoPostFeature: React.FC = () => {
                     label={label}
                     clickable
                     onClick={() => setFeedFilter(value)}
-                    color={feedFilter === value ? 'primary' : 'default'}
-                    variant={feedFilter === value ? 'filled' : 'outlined'}
+                    variant="outlined"
                     sx={{
                       borderRadius: 999,
-                      px: 0.4,
-                      fontWeight: feedFilter === value ? 700 : 500,
-                      bgcolor: feedFilter === value ? '#dbe9f9' : '#f5f9ff',
-                      color: feedFilter === value ? '#10355f' : '#48617d',
-                      borderColor: '#c1d3e8',
-                      '& .MuiChip-label': { px: 1.2 },
+                      height: 42,
+                      px: 0.55,
+                      fontWeight: 500,
+                      bgcolor: feedFilter === value ? '#1e88e5' : 'rgba(255,255,255,0.3)',
+                      color: feedFilter === value ? '#ffffff' : '#4b5563',
+                      borderColor: feedFilter === value ? '#1e88e5' : '#aeb8c5',
+                      boxShadow: feedFilter === value ? '0 8px 18px rgba(30, 136, 229, 0.28)' : 'none',
+                      '&:hover': {
+                        bgcolor: feedFilter === value ? '#1777ca' : 'rgba(255,255,255,0.56)',
+                      },
+                      '& .MuiChip-label': { px: 1.5, lineHeight: 1, fontSize: '0.96rem' },
                     }}
                   />
                 ))}
               </Stack>
             </Stack>
-          </Paper>
+          </Box>
 
-          <Paper
-            sx={{
-              mb: 3,
-              borderRadius: 2.5,
-              border: '1px solid #d5e0ec',
-              p: { xs: 1.5, md: 2 },
-              background: 'rgba(255,255,255,0.82)',
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          <Box sx={{ mb: 3.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827' }}>
                 Current Chat Drafts
               </Typography>
               <Chip
                 size="small"
                 label={`${filteredDrafts.length} draft${filteredDrafts.length === 1 ? '' : 's'}`}
-                variant="outlined"
-                sx={{ borderColor: '#c1d3e8', color: '#355373', fontWeight: 600 }}
+                sx={{
+                  height: 36,
+                  borderRadius: 999,
+                  bgcolor: '#dce3eb',
+                  color: '#111827',
+                  fontWeight: 700,
+                  '& .MuiChip-label': { px: 1.3, fontSize: '0.95rem' },
+                }}
               />
             </Stack>
             {loading ? (
@@ -633,10 +645,11 @@ const AutoPostFeature: React.FC = () => {
               <Box
                 sx={{
                   border: '1px dashed #c9d6e3',
-                  borderRadius: 2,
-                  px: 2,
-                  py: 3,
+                  borderRadius: 3,
+                  px: 2.5,
+                  py: 4,
                   color: 'text.secondary',
+                  bgcolor: 'rgba(255,255,255,0.7)',
                 }}
               >
                 <Typography color="text.secondary">No current chat drafts for this filter.</Typography>
@@ -645,117 +658,143 @@ const AutoPostFeature: React.FC = () => {
               <Box
                 sx={{
                   display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' },
-                  gap: 1.5,
+                  gridTemplateColumns: {
+                    xs: 'repeat(1, minmax(0, 1fr))',
+                    sm: 'repeat(2, minmax(0, 1fr))',
+                    md: 'repeat(3, minmax(0, 1fr))',
+                    lg: 'repeat(4, minmax(0, 1fr))',
+                  },
+                  gap: 2,
                 }}
               >
                 {filteredDrafts.map((draft) => (
                   <Paper
                     key={`${draft.projectId}-${draft.platform}-${draft.runId}`}
                     onClick={() => openDraftPreview(draft)}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      openDraftMenu(event, draft);
+                    }}
                     sx={{
-                      minHeight: 220,
-                      p: 1.5,
-                      borderRadius: 2,
-                      border: '1px solid #d2deeb',
-                      background: 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,252,255,0.94) 100%)',
+                      minHeight: 270,
+                      borderRadius: 2.5,
+                      border: '1px solid #d6dce5',
+                      background: '#ffffff',
                       cursor: 'pointer',
                       position: 'relative',
                       overflow: 'hidden',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 1,
                       transition: 'transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease',
+                      boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)',
                       '&:hover': {
                         transform: 'translateY(-1px)',
-                        boxShadow: '0 10px 22px rgba(23, 61, 96, 0.12)',
-                        borderColor: '#a9c0da',
+                        boxShadow: '0 14px 30px rgba(15, 23, 42, 0.14)',
+                        borderColor: '#b8c2ce',
                       },
                     }}
                   >
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ pr: 4.5, minWidth: 0, flexWrap: 'nowrap' }}>
-                      <Chip
-                        size="small"
-                        label={draft.platform.toUpperCase()}
-                        variant="outlined"
+                    <Box sx={{ p: 2.2, pb: 0 }}>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                        <Box
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 1.2,
+                            bgcolor: '#edf4fc',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: draft.platform === 'facebook' ? '#1877f2' : '#0a66c2',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {draft.platform === 'facebook' ? (
+                            <FacebookIcon sx={{ fontSize: 27 }} />
+                          ) : (
+                            <LinkedInIcon sx={{ fontSize: 27 }} />
+                          )}
+                        </Box>
+                        <Chip
+                          size="small"
+                          label={draft.projectName}
+                          variant="filled"
+                          sx={{
+                            height: 30,
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            bgcolor: '#e7ebf1',
+                            color: '#111827',
+                            fontWeight: 500,
+                            '& .MuiChip-label': {
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              px: 1.3,
+                              fontSize: '0.95rem',
+                            },
+                          }}
+                        />
+                      </Stack>
+                    </Box>
+                    <Box sx={{ p: 2.2, pt: 1.6, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <Typography sx={{ fontSize: '0.82rem', color: '#6b7280', mb: 1.4 }}>
+                        Updated {formatDate(draft.updatedAt)}
+                      </Typography>
+                      <Typography
                         sx={{
-                          height: 24,
-                          bgcolor: '#ffffff',
-                          borderColor: '#9db7d3',
-                          color: '#24517e',
-                          fontWeight: 700,
-                          '& .MuiChip-label': { px: 1 },
+                          color: '#111827',
+                          wordBreak: 'break-word',
+                          display: '-webkit-box',
+                          overflow: 'hidden',
+                          WebkitLineClamp: 4,
+                          WebkitBoxOrient: 'vertical',
+                          lineHeight: 1.42,
+                          fontSize: '1.08rem',
+                          flex: 1,
                         }}
-                      />
-                      <Chip
-                        size="small"
-                        label={draft.projectName}
-                        variant="outlined"
-                        sx={{
-                          height: 24,
-                          minWidth: 0,
-                          maxWidth: '100%',
-                          borderColor: '#b9cce0',
-                          color: '#4b6685',
-                          '& .MuiChip-label': {
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            px: 1,
-                          },
-                        }}
-                      />
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary">
-                      Updated {formatDate(draft.updatedAt)}
-                    </Typography>
-                    <Typography
+                      >
+                        {toDraftExcerpt(draft.content)}
+                      </Typography>
+                    </Box>
+                    <Box
                       sx={{
-                        color: '#20364f',
-                        wordBreak: 'break-word',
-                        display: '-webkit-box',
-                        overflow: 'hidden',
-                        WebkitLineClamp: 6,
-                        WebkitBoxOrient: 'vertical',
-                        lineHeight: 1.46,
-                        fontSize: '0.95rem',
-                        flex: 1,
+                        px: 2.2,
+                        py: 1.35,
+                        borderTop: '1px solid #e7ebf0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.8,
+                        color: '#111827',
                       }}
                     >
-                      {toDraftExcerpt(draft.content)}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.8rem', color: '#4f647f', fontWeight: 600 }}>
-                      Click to preview and schedule
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={(event) => openDraftMenu(event, draft)}
-                      sx={{
-                        position: 'absolute',
-                        top: 8,
-                        right: 8,
-                        color: '#5a7089',
-                        bgcolor: 'rgba(232,241,251,0.92)',
-                        '&:hover': { bgcolor: '#dceaf8' },
-                      }}
-                    >
-                      <MoreHorizRoundedIcon fontSize="small" />
-                    </IconButton>
+                      <Typography
+                        sx={{
+                          fontSize: '1rem',
+                          fontWeight: 500,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        Click to preview and schedule
+                      </Typography>
+                      <ArrowForwardIosRoundedIcon sx={{ fontSize: 15, color: '#374151' }} />
+                    </Box>
                   </Paper>
                 ))}
               </Box>
             )}
-          </Paper>
+          </Box>
 
           <Paper
             sx={{
-              borderRadius: 2.5,
-              border: '1px solid #d5e0ec',
-              p: { xs: 1.5, md: 2 },
-              background: 'rgba(255,255,255,0.82)',
+              borderRadius: 3,
+              border: '1px solid #d5dce5',
+              p: { xs: 2, md: 2.4 },
+              background: 'rgba(255,255,255,0.88)',
+              boxShadow: '0 12px 30px rgba(15, 23, 42, 0.06)',
             }}
           >
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', mb: 2.1 }}>
               AutoPost Jobs Timeline
             </Typography>
             {loading ? (
@@ -763,20 +802,21 @@ const AutoPostFeature: React.FC = () => {
             ) : filteredJobs.length === 0 ? (
               <Box
                 sx={{
-                  border: '1px dashed #c9d6e3',
-                  borderRadius: 2,
-                  px: 3,
-                  py: 6,
+                  border: '1px dashed #c8cfd9',
+                  borderRadius: 2.2,
+                  px: 3.5,
+                  py: { xs: 6, md: 8 },
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 1.5,
+                  gap: 2.2,
                   color: 'text.secondary',
+                  bgcolor: 'rgba(255,255,255,0.55)',
                 }}
               >
-                <ScheduleOutlinedIcon sx={{ fontSize: 52, color: '#7f8ea3' }} />
-                <Typography color="text.secondary">No auto-post jobs yet.</Typography>
+                <ScheduleOutlinedIcon sx={{ fontSize: 60, color: '#7a8595' }} />
+                <Typography sx={{ color: '#4b5563' }}>No auto-post jobs yet.</Typography>
               </Box>
             ) : (
               <Stack spacing={1.25}>
