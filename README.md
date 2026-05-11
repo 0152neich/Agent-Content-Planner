@@ -111,6 +111,12 @@ npm install
 npm run dev
 ```
 
+## Production HTTPS
+
+For Let's Encrypt + Certbot Docker setup on production, see:
+
+- `SSL_PROD_SETUP.md`
+
 ## Dependencies
 
 ### Backend

@@ -9,6 +9,9 @@ export default defineConfig({
     TanStackRouterVite(),
     react()
   ],
+  server: {
+    allowedHosts: ['acp.id.vn'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
