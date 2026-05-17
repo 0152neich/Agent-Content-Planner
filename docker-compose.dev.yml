@@ -1,0 +1,141 @@
+networks:
+  app-tier:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx/dev.reverse-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-tier
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    networks:
+      - app-tier
+
+  postgres:
+    image: postgres:17.0-alpine
+    restart: always
+    ports:
+      - 15432:5432
+    networks:
+      - app-tier
+    environment:
+      POSTGRES_USER: ${POSTGRES__USER}
+      POSTGRES_PASSWORD: ${POSTGRES__PASSWORD}
+      POSTGRES_DB: ${POSTGRES__DB}
+      POSTGRES_HOST: ${POSTGRES__HOST}
+      POSTGRES_PORT: ${POSTGRES__PORT}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES__USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+    ports:
+      - 8000:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-tier
+
+  worker:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && celery -A app.autopost_celery.celery_app worker --loglevel=INFO"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
+      CELERY__BROKER_URL: ${CELERY__BROKER_URL}
+      CELERY__RESULT_BACKEND: ${CELERY__RESULT_BACKEND}
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app-tier
+
+  beat:
+    image: python:3.11-slim
+    restart: unless-stopped
+    working_dir: /app/src
+    command: >
+      sh -c "pip install --no-cache-dir -r /app/requirements.txt
+      && celery -A app.autopost_celery.celery_app beat --loglevel=INFO"
+    env_file:
+      - .env
+    environment:
+      POSTGRES__HOST: ${POSTGRES__HOST}
+      POSTGRES__PORT: ${POSTGRES__PORT}
+      CELERY__BROKER_URL: ${CELERY__BROKER_URL}
+      CELERY__RESULT_BACKEND: ${CELERY__RESULT_BACKEND}
+    volumes:
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+    depends_on:
+      redis:
+        condition: service_started
+      worker:
+        condition: service_started
+    networks:
+      - app-tier
+
+  frontend:
+    image: node:20-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    env_file:
+      - ./frontend/.env
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - 5173:5173
+    depends_on:
+      - backend
+    networks:
+      - app-tier
