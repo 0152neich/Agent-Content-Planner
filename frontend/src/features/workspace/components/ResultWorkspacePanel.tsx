@@ -1226,7 +1226,12 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
   const [publishedPosts, setPublishedPosts] = useState<
     Partial<Record<SocialPublishPlatform, SocialPublishResult>>
   >({});
-  const [showConnectSocialCta, setShowConnectSocialCta] = useState<SocialPublishPlatform | null>(null);
+  const [showConnectSocialCta, setShowConnectSocialCta] = useState<
+    Record<SocialPublishPlatform, boolean>
+  >({
+    linkedin: false,
+    facebook: false,
+  });
   const [facebookPages, setFacebookPages] = useState<FacebookPageOption[]>([]);
   const [facebookPagesLoading, setFacebookPagesLoading] = useState(false);
   const [facebookPageDialogOpen, setFacebookPageDialogOpen] = useState(false);
@@ -1286,7 +1291,10 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
 
   useEffect(() => {
     setPublishedPosts({});
-    setShowConnectSocialCta(null);
+    setShowConnectSocialCta({
+      linkedin: false,
+      facebook: false,
+    });
   }, [campaignResult?.meta.run_id]);
 
   const relevantHistoryRuns = useMemo(
@@ -1337,7 +1345,7 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
       const result = await onPublishSocialPost(platform, publishContent, pageId);
       setPublishedPosts((prev) => ({ ...prev, [platform]: result }));
       showSnackbar('Successfully published!', 'success');
-      setShowConnectSocialCta(null);
+      setShowConnectSocialCta((prev) => ({ ...prev, [platform]: false }));
       if (platform === 'facebook') {
         setFacebookPageDialogOpen(false);
       }
@@ -1351,7 +1359,7 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
           : null;
       const message = error instanceof Error ? error.message : 'Failed to publish post.';
       if (errorCode === 'SOCIAL_NOT_CONNECTED') {
-        setShowConnectSocialCta(platform);
+        setShowConnectSocialCta((prev) => ({ ...prev, [platform]: true }));
       }
       showSnackbar(message, 'error');
     } finally {
@@ -1396,7 +1404,7 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
             : null;
         const message = error instanceof Error ? error.message : 'Failed to load Facebook pages.';
         if (errorCode === 'SOCIAL_NOT_CONNECTED') {
-          setShowConnectSocialCta('facebook');
+          setShowConnectSocialCta((prev) => ({ ...prev, facebook: true }));
         }
         showSnackbar(message, 'error');
         setFacebookPageDialogOpen(false);
@@ -1407,6 +1415,21 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
     }
     await publishWithOptionalPage(publishPlatform);
   };
+
+  const latestTabRun = relevantHistoryRuns[0] || null;
+  const tabModel = latestTabRun
+    ? String(
+        latestTabRun.request_payload?.selected_model ||
+          campaignResult?.meta.selected_model ||
+          '',
+      ).trim()
+    : '';
+  const tabUpdatedAt = latestTabRun
+    ? getRunLastUpdatedAt(latestTabRun)
+    : campaignResult?.meta.updated_at || null;
+  const shouldShowConnectBanner = Boolean(
+    publishPlatform && showConnectSocialCta[publishPlatform],
+  );
 
   return (
     <Box
@@ -1504,27 +1527,31 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
             >
               <Stack spacing={0.5} alignItems="flex-start">
                 <Stack direction="row" gap={0.75} flexWrap="wrap" alignItems="center">
-                  <Chip
-                    size="small"
-                    label={campaignResult.meta.selected_model || 'Unknown model'}
-                    sx={{
-                      borderRadius: 999,
-                      height: 28,
-                      fontWeight: 700,
-                      bgcolor: isDark ? 'rgba(59,130,246,0.18)' : '#e7f1ff',
-                      color: isDark ? '#bfdbfe' : '#1d4e89',
-                    }}
-                  />
-                  <Chip
-                    size="small"
-                    label={formatUpdatedLabel(campaignResult.meta.updated_at)}
-                    sx={{
-                      borderRadius: 999,
-                      height: 28,
-                      bgcolor: isDark ? 'rgba(148,163,184,0.16)' : '#eef2f7',
-                      color: isDark ? '#cbd5e1' : '#334155',
-                    }}
-                  />
+                  {tabModel ? (
+                    <Chip
+                      size="small"
+                      label={tabModel}
+                      sx={{
+                        borderRadius: 999,
+                        height: 28,
+                        fontWeight: 700,
+                        bgcolor: isDark ? 'rgba(59,130,246,0.18)' : '#e7f1ff',
+                        color: isDark ? '#bfdbfe' : '#1d4e89',
+                      }}
+                    />
+                  ) : null}
+                  {tabUpdatedAt ? (
+                    <Chip
+                      size="small"
+                      label={formatUpdatedLabel(tabUpdatedAt)}
+                      sx={{
+                        borderRadius: 999,
+                        height: 28,
+                        bgcolor: isDark ? 'rgba(148,163,184,0.16)' : '#eef2f7',
+                        color: isDark ? '#cbd5e1' : '#334155',
+                      }}
+                    />
+                  ) : null}
                 </Stack>
                 {activeTab === 0 && analysisReliability ? (
                   <Chip
@@ -1618,7 +1645,7 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
               </Stack>
             </Box>
 
-            {showConnectSocialCta ? (
+            {shouldShowConnectBanner ? (
               <Paper
                 variant="outlined"
                 sx={{
@@ -1636,7 +1663,7 @@ export const ResultWorkspacePanel: React.FC<ResultWorkspacePanelProps> = ({
                 <Typography
                   sx={{ fontSize: '0.86rem', color: isDark ? '#dbeafe' : '#1d4e89' }}
                 >
-                  {showConnectSocialCta === 'facebook'
+                  {publishPlatform === 'facebook'
                     ? 'Facebook account is not connected. Connect your account to publish.'
                     : 'LinkedIn account is not connected. Connect your account to publish.'}
                 </Typography>
