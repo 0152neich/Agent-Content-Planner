@@ -51,6 +51,14 @@ _VI_DIACRITIC_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 _TOKEN_PATTERN = re.compile(r"[a-zA-Z\u00C0-\u1EF9']+")
+_FORCE_EN_PATTERNS = [
+    re.compile(r"\b(in english|english version|write in english|rewrite in english)\b", re.IGNORECASE),
+    re.compile(r"(ti[eế]ng anh|sang ti[eế]ng anh|chuy[eể]n.*ti[eế]ng anh|vi[eế]t.*ti[eế]ng anh)", re.IGNORECASE),
+]
+_FORCE_VI_PATTERNS = [
+    re.compile(r"\b(in vietnamese|vietnamese version|write in vietnamese|rewrite in vietnamese)\b", re.IGNORECASE),
+    re.compile(r"(ti[eế]ng vi[eệ]t|sang ti[eế]ng vi[eệ]t|chuy[eể]n.*ti[eế]ng vi[eệ]t|vi[eế]t.*ti[eế]ng vi[eệ]t)", re.IGNORECASE),
+]
 
 
 class LanguagePolicyService:
@@ -61,6 +69,13 @@ class LanguagePolicyService:
         normalized = (prompt or "").strip()
         if not normalized:
             return "vi"
+
+        for pattern in _FORCE_EN_PATTERNS:
+            if pattern.search(normalized):
+                return "en"
+        for pattern in _FORCE_VI_PATTERNS:
+            if pattern.search(normalized):
+                return "vi"
 
         lowered = normalized.lower()
         tokens = _TOKEN_PATTERN.findall(lowered)

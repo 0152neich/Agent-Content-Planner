@@ -255,3 +255,8 @@ def test_stream_unhandled_exception_emits_error_event_and_finishes(
     assert error_events
     assert error_events[-1]["error"] == "Unexpected error while creating message."
     assert error_events[-1]["code"] == 500
+
+
+def test_chunk_text_preserves_leading_spaces_in_stream_delta() -> None:
+    chunks = conversation_router_module._chunk_text(" hello  world\nnext")
+    assert chunks == [" ", "hello  ", "world\n", "next"]

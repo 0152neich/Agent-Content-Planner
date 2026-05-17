@@ -144,3 +144,8 @@ class AutopostJob(DatabaseSchema):
     error_message: str | None = None
     retry_count: int = Field(default=0, ge=0)
     conversation_run_id: str | None = Field(None, max_length=64)
+    quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    quality_flags: list[str] = Field(default_factory=list)
+    next_action: str | None = Field(None, max_length=32)
+    job_version: int = Field(default=0, ge=0)
+    idempotency_key: str | None = Field(None, max_length=128)

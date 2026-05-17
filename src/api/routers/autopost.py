@@ -18,10 +18,12 @@ from api.models.autopost import (
     AutopostJobCreateAPIData,
     AutopostJobCreateAPIInput,
     AutopostJobCreateAPIOutput,
+    AutopostJobContentUpdateAPIInput,
     AutopostJobListAPIData,
     AutopostJobListAPIOutput,
 )
 from app.services import (
+    ApproveAutopostJobInput,
     AuthServiceOutput,
     AutopostService,
     CancelAutopostJobInput,
@@ -30,6 +32,7 @@ from app.services import (
     ListAutopostCalendarInput,
     ListAutopostJobsInput,
     RetryAutopostJobInput,
+    UpdateAutopostContentInput,
 )
 from infra.database.pg.schemas import AutopostJob, User
 from shared.logging import get_logger
@@ -116,6 +119,25 @@ async def create_job(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
     if not result.status:
+        connect_required = None
+        connect_platform = None
+        connect_url = None
+        connect_reason = None
+        if isinstance(result.data, dict):
+            if "connect_required" in result.data:
+                connect_required = bool(result.data.get("connect_required"))
+            raw_platform = result.data.get("platform")
+            connect_platform = (
+                str(raw_platform).strip().lower() if isinstance(raw_platform, str) else None
+            )
+            raw_connect_url = result.data.get("connect_url")
+            connect_url = (
+                str(raw_connect_url).strip() if isinstance(raw_connect_url, str) else None
+            )
+            raw_reason = result.data.get("reason")
+            connect_reason = (
+                str(raw_reason).strip() if isinstance(raw_reason, str) else None
+            )
         return _json_response(
             AutopostJobCreateAPIOutput(
                 success=False,
@@ -125,10 +147,17 @@ async def create_job(
                     status_code=result.code,
                     fallback="Create auto-post job failed.",
                 ),
+                connect_required=connect_required,
+                connect_platform=connect_platform,
+                connect_url=connect_url,
+                connect_reason=connect_reason,
             ),
             result.code,
         )
-    payload = result.data if isinstance(result.data, dict) else {}
+    if isinstance(result.data, AutopostJob):
+        payload = {"id": result.data.id, "status": result.data.status}
+    else:
+        payload = result.data if isinstance(result.data, dict) else {}
     return _json_response(
         AutopostJobCreateAPIOutput(
             success=True,
@@ -348,6 +377,125 @@ async def retry_job(
                     error=result.error,
                     status_code=result.code,
                     fallback="Retry auto-post job failed.",
+                ),
+            ),
+            result.code,
+        )
+    payload = result.data if isinstance(result.data, dict) else {}
+    return AutopostJobActionAPIOutput(
+        success=True,
+        data=AutopostJobActionAPIData(
+            id=str(payload.get("id") or job_id),
+            status=str(payload.get("status") or ""),
+        ),
+        error=None,
+    )
+
+
+@autopost_router.post(
+    "/jobs/{job_id}/approve-and-publish",
+    response_model=AutopostJobActionAPIOutput,
+    status_code=status.HTTP_200_OK,
+    summary="Approve reviewed job and publish/schedule",
+)
+async def approve_and_publish_job(
+    job_id: str,
+    current_user_result: AuthServiceOutput = Depends(get_current_user),
+) -> AutopostJobActionAPIOutput | JSONResponse:
+    user, error_response = _extract_user(current_user_result)
+    if error_response:
+        return error_response
+    assert user is not None
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                _service.approve_and_publish,
+                ApproveAutopostJobInput(user_id=user.id or "", job_id=job_id),
+            ),
+        )
+    except Exception as exc:
+        logger.exception("autopost_approve_publish_unhandled", error=str(exc))
+        return _json_response(
+            AutopostJobActionAPIOutput(
+                success=False,
+                data=None,
+                error="Unexpected error while approving job.",
+            ),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    if not result.status:
+        return _json_response(
+            AutopostJobActionAPIOutput(
+                success=False,
+                data=None,
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Approve and publish job failed.",
+                ),
+            ),
+            result.code,
+        )
+    payload = result.data if isinstance(result.data, dict) else {}
+    return AutopostJobActionAPIOutput(
+        success=True,
+        data=AutopostJobActionAPIData(
+            id=str(payload.get("id") or job_id),
+            status=str(payload.get("status") or ""),
+        ),
+        error=None,
+    )
+
+
+@autopost_router.post(
+    "/jobs/{job_id}/content",
+    response_model=AutopostJobActionAPIOutput,
+    status_code=status.HTTP_200_OK,
+    summary="Update job content and requeue",
+)
+async def update_job_content(
+    job_id: str,
+    input: AutopostJobContentUpdateAPIInput,
+    current_user_result: AuthServiceOutput = Depends(get_current_user),
+) -> AutopostJobActionAPIOutput | JSONResponse:
+    user, error_response = _extract_user(current_user_result)
+    if error_response:
+        return error_response
+    assert user is not None
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                _service.update_content_and_requeue,
+                UpdateAutopostContentInput(
+                    user_id=user.id or "",
+                    job_id=job_id,
+                    content=input.content,
+                ),
+            ),
+        )
+    except Exception as exc:
+        logger.exception("autopost_update_content_unhandled", error=str(exc))
+        return _json_response(
+            AutopostJobActionAPIOutput(
+                success=False,
+                data=None,
+                error="Unexpected error while updating job content.",
+            ),
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    if not result.status:
+        return _json_response(
+            AutopostJobActionAPIOutput(
+                success=False,
+                data=None,
+                error=to_user_error_message(
+                    error=result.error,
+                    status_code=result.code,
+                    fallback="Update auto-post content failed.",
                 ),
             ),
             result.code,

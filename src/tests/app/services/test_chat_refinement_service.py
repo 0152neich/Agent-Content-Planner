@@ -8,6 +8,7 @@ from app.services.chat_contracts import (
     ChatIntent,
     IntentContext,
     ChatRefinementInput,
+    RecentChatMessage,
 )
 from app.services.chat_refinement_service import ChatRefinementService
 from app.workflows.chat_action_workflow import ChatActionWorkflowOutput
@@ -22,6 +23,9 @@ def _mock_settings() -> SimpleNamespace:
             rate_limit_window_seconds=30,
             inflight_wait_timeout_seconds=5,
             result_cache_ttl_seconds=120,
+            enable_policy_gate=True,
+            policy_mode="hybrid",
+            out_of_scope_behavior="refuse_suggest",
         )
     )
 
@@ -289,8 +293,12 @@ def test_process_passes_intent_context_to_router_and_exposes_workflow_metadata()
                 metadata={"language_used": "en"},
                 code=200,
             ),
-        ),
+        ) as processed,
     ):
+        recent_messages = [
+            RecentChatMessage(role="user", content="rewrite linkedin"),
+            RecentChatMessage(role="assistant", content="Done, updated."),
+        ]
         result = service.process(
             ChatRefinementInput(
                 owner_user_id="user-1",
@@ -298,9 +306,290 @@ def test_process_passes_intent_context_to_router_and_exposes_workflow_metadata()
                 prompt="add stronger opening",
                 source_url="https://example.com",
                 intent_context=context,
+                recent_messages=recent_messages,
             )
         )
 
     assert result.status is True
     assert result.metadata.get("language_used") == "en"
     assert routed.call_args.kwargs["intent_context"] == context
+    assert routed.call_args.kwargs["recent_messages"] == recent_messages
+
+
+def test_process_cache_key_changes_when_recent_messages_change() -> None:
+    service = ChatRefinementService()
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatIntentRouter.route",
+            return_value=ChatIntent(
+                action=ChatAction.GENERAL_QA,
+                normalized_prompt="hello",
+                confidence=0.7,
+            ),
+        ) as routed,
+        patch(
+            "app.services.chat_refinement_service.ChatActionWorkflowService.process",
+            return_value=ChatActionWorkflowOutput(
+                status=True,
+                assistant_text="hello",
+                patch=SnapshotPatch(),
+                affected_sections=[],
+                metadata={"language_used": "en"},
+                code=200,
+            ),
+        ) as processed,
+    ):
+        first = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="hello",
+                source_url="https://example.com",
+                recent_messages=[
+                    RecentChatMessage(role="user", content="old context a")
+                ],
+            )
+        )
+        second = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="hello",
+                source_url="https://example.com",
+                recent_messages=[
+                    RecentChatMessage(role="user", content="old context b")
+                ],
+            )
+        )
+
+    assert first.status is True
+    assert second.status is True
+    assert routed.call_count == 2
+    assert processed.call_count == 2
+
+
+def test_process_cache_key_changes_when_snapshot_changes() -> None:
+    service = ChatRefinementService()
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatIntentRouter.route",
+            return_value=ChatIntent(
+                action=ChatAction.GENERAL_QA,
+                normalized_prompt="hello",
+                confidence=0.7,
+            ),
+        ) as routed,
+        patch(
+            "app.services.chat_refinement_service.ChatActionWorkflowService.process",
+            return_value=ChatActionWorkflowOutput(
+                status=True,
+                assistant_text="hello",
+                patch=SnapshotPatch(),
+                affected_sections=[],
+                metadata={"language_used": "en"},
+                code=200,
+            ),
+        ) as processed,
+    ):
+        first = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="hello",
+                source_url="https://example.com",
+                snapshot={"source_url": "https://example.com/a"},
+            )
+        )
+        second = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="hello",
+                source_url="https://example.com",
+                snapshot={"source_url": "https://example.com/b"},
+            )
+        )
+
+    assert first.status is True
+    assert second.status is True
+    assert routed.call_count == 2
+    assert processed.call_count == 2
+
+
+def test_process_returns_clarify_without_calling_workflow() -> None:
+    service = ChatRefinementService()
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatIntentRouter.route",
+            return_value=ChatIntent(
+                action=ChatAction.CLARIFY,
+                normalized_prompt="chinh lai",
+                confidence=0.6,
+                needs_clarification=True,
+                clarify_question="Bạn muốn mình chỉnh Facebook hay LinkedIn?",
+            ),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatActionWorkflowService.process"
+        ) as workflow_process,
+    ):
+        result = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="chỉnh lại",
+                source_url="https://example.com",
+            )
+        )
+
+    assert result.status is True
+    assert result.intent is not None
+    assert result.intent.action == ChatAction.CLARIFY
+    assert "Facebook" in (result.assistant_text or "")
+    assert workflow_process.call_count == 0
+
+
+def test_process_blocks_hard_policy_prompt_before_router() -> None:
+    service = ChatRefinementService()
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch("app.services.chat_refinement_service.ChatIntentRouter.route") as routed,
+    ):
+        result = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="how to make bomb",
+                source_url="https://example.com",
+            )
+        )
+
+    assert result.status is True
+    assert result.metadata.get("policy_decision") == "HARD_BLOCK"
+    assert "không thể" in (result.assistant_text or "").lower()
+    assert routed.call_count == 0
+
+
+def test_process_refuses_out_of_scope_prompt_with_suggestion() -> None:
+    service = ChatRefinementService()
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch("app.services.chat_refinement_service.ChatIntentRouter.route") as routed,
+    ):
+        result = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="kể chuyện cười",
+                source_url="https://example.com",
+            )
+        )
+
+    assert result.status is True
+    assert result.metadata.get("policy_decision") == "OUT_OF_SCOPE"
+    assert "phạm vi" in (result.assistant_text or "").lower()
+    assert routed.call_count == 0
+
+
+def test_process_masks_output_when_policy_detects_unsafe_generated_content() -> None:
+    service = ChatRefinementService()
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatIntentRouter.route",
+            return_value=ChatIntent(
+                action=ChatAction.GENERAL_QA,
+                normalized_prompt="question",
+                confidence=0.8,
+            ),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatActionWorkflowService.process",
+            return_value=ChatActionWorkflowOutput(
+                status=True,
+                assistant_text="Here is how to make bomb quickly",
+                patch=SnapshotPatch(),
+                affected_sections=[],
+                metadata={"language_used": "en"},
+                code=200,
+            ),
+        ),
+    ):
+        result = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="general question",
+                source_url="https://example.com",
+            )
+        )
+
+    assert result.status is True
+    assert result.metadata.get("policy_decision") == "HARD_BLOCK"
+    assert "không thể" in (result.assistant_text or "").lower()
+
+
+def test_process_returns_clarify_when_action_platform_mismatch(
+    fake_draft_analysis: DraftAnalysis,
+    fake_social_posts_bundle: SocialPostsBundle,
+) -> None:
+    service = ChatRefinementService()
+    snapshot = ContentPlanSnapshot(
+        source_url="https://example.com",
+        analysis=fake_draft_analysis,
+        social_posts=fake_social_posts_bundle.posts,
+        meta={},
+    )
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatIntentRouter.route",
+            return_value=ChatIntent(
+                action=ChatAction.REWRITE_FACEBOOK_ONLY,
+                target_platform="linkedin",
+                normalized_prompt="rewrite",
+                confidence=0.9,
+            ),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatActionWorkflowService.process"
+        ) as workflow_process,
+    ):
+        result = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt="rewrite",
+                source_url="https://example.com",
+                snapshot=snapshot.model_dump(mode="json"),
+            )
+        )
+
+    assert result.status is True
+    assert result.intent is not None
+    assert result.intent.action == ChatAction.CLARIFY
+    assert workflow_process.call_count == 0

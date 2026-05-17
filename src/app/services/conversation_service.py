@@ -2,11 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime, timezone
+from hashlib import sha256
+import json
 from typing import Any
 
+import tiktoken
 from api.helpers.exception_handler import to_user_error_message
 from app.services.chat_refinement_service import ChatRefinementService
-from app.services.chat_contracts import ChatRefinementInput, IntentContext
+from app.services.chat_contracts import (
+    ChatRefinementInput,
+    IntentContext,
+    RecentChatMessage,
+)
 from app.workflows.chat_snapshot import ContentPlanSnapshot
 from infra.database.pg import SQLDatabase
 from infra.database.pg.schemas import (
@@ -25,6 +32,10 @@ logger = get_logger(__name__)
 
 DEFAULT_CONVERSATION_MODEL = "gpt-4o-mini"
 LEGACY_OPENAI_MODEL_ALIASES = {"gpt-3.5-turbo": DEFAULT_CONVERSATION_MODEL}
+RECENT_CHAT_TURNS_LIMIT = 10
+RECENT_CHAT_MESSAGES_LIMIT = RECENT_CHAT_TURNS_LIMIT * 2
+RECENT_CHAT_MESSAGE_MAX_TOKENS = 1024
+RECENT_CHAT_ENCODING = tiktoken.get_encoding("cl100k_base")
 
 
 class ConversationServiceOutput(BaseModel):
@@ -187,6 +198,80 @@ class ConversationService(BaseModel):
         return platform.strip().lower()
 
     @staticmethod
+    def _normalize_message_role(role: str | None) -> str | None:
+        if not isinstance(role, str):
+            return None
+        normalized = role.strip().lower()
+        if normalized in {"user", "assistant"}:
+            return normalized
+        return None
+
+    @staticmethod
+    def _normalize_history_text(value: str | None) -> str:
+        if not isinstance(value, str):
+            return ""
+        return " ".join(value.strip().split())
+
+    @staticmethod
+    def _truncate_message_tokens(
+        text: str, *, max_tokens: int = RECENT_CHAT_MESSAGE_MAX_TOKENS
+    ) -> str:
+        compact = ConversationService._normalize_history_text(text)
+        if not compact:
+            return ""
+        token_ids = RECENT_CHAT_ENCODING.encode(compact)
+        if len(token_ids) <= max_tokens:
+            return compact
+        return RECENT_CHAT_ENCODING.decode(token_ids[:max_tokens]).strip()
+
+    @staticmethod
+    def _recent_messages_digest(recent_messages: list[RecentChatMessage]) -> str:
+        payload = "\n".join(
+            f"{item.role}:{ConversationService._normalize_history_text(item.content)}"
+            for item in recent_messages
+        )
+        return sha256(payload.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _snapshot_version(payload: dict[str, Any] | None) -> str:
+        if not isinstance(payload, dict):
+            return sha256(b"").hexdigest()
+        try:
+            snapshot_payload = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        except Exception:
+            snapshot_payload = ""
+        return sha256(snapshot_payload.encode("utf-8")).hexdigest()
+
+    def _resolve_recent_messages(
+        self,
+        *,
+        session,
+        conversation_id: str,
+    ) -> list[RecentChatMessage]:
+        rows = self._db.list_conversation_messages_by_cursor(
+            session=session,
+            conversation_id=conversation_id,
+            cursor_created_at=None,
+            cursor_id=None,
+            limit=RECENT_CHAT_MESSAGES_LIMIT,
+        )
+        if not rows:
+            return []
+
+        recent_messages: list[RecentChatMessage] = []
+        for row in reversed(rows):
+            normalized_role = self._normalize_message_role(row.role)
+            if normalized_role is None:
+                continue
+            truncated_content = self._truncate_message_tokens(row.content)
+            if not truncated_content:
+                continue
+            recent_messages.append(
+                RecentChatMessage(role=normalized_role, content=truncated_content)
+            )
+        return recent_messages
+
+    @staticmethod
     def _sanitize_refinement_error(error: str | None, code: int) -> str:
         return to_user_error_message(
             error=error,
@@ -325,10 +410,16 @@ class ConversationService(BaseModel):
         updated_at: datetime | None = None,
     ) -> IntentContext | None:
         data = dict(payload or {})
+        raw_active_context = data.get("active_context")
+        active_context = (
+            raw_active_context if isinstance(raw_active_context, dict) else {}
+        )
         raw_intent = data.get("intent")
         intent = raw_intent if isinstance(raw_intent, dict) else {}
 
-        last_target_platform = intent.get("target_platform")
+        last_target_platform = (
+            active_context.get("last_target_platform") or intent.get("target_platform")
+        )
         if (
             not isinstance(last_target_platform, str)
             or not last_target_platform.strip()
@@ -337,13 +428,17 @@ class ConversationService(BaseModel):
         else:
             last_target_platform = last_target_platform.strip().lower()
 
-        last_action = data.get("action") or intent.get("action")
+        last_action = (
+            active_context.get("last_action")
+            or data.get("action")
+            or intent.get("action")
+        )
         if not isinstance(last_action, str) or not last_action.strip():
             last_action = None
         else:
             last_action = last_action.strip().upper()
 
-        last_language = data.get("language_used")
+        last_language = active_context.get("last_language") or data.get("language_used")
         if not isinstance(last_language, str) or not last_language.strip():
             last_language = None
         else:
@@ -361,6 +456,64 @@ class ConversationService(BaseModel):
                 if updated_at is not None
                 else None
             ),
+        )
+
+    @staticmethod
+    def _next_active_context(
+        *,
+        current_context: IntentContext | None,
+        resolved_intent: dict[str, Any] | None,
+        language_used: str | None,
+        updated_at: datetime,
+    ) -> IntentContext | None:
+        if not isinstance(resolved_intent, dict):
+            return None
+        action_value = resolved_intent.get("action")
+        if not isinstance(action_value, str):
+            return None
+        normalized_action = action_value.strip().upper()
+        if normalized_action in {"GENERAL_QA", "CLARIFY"}:
+            return None
+
+        target_platform = resolved_intent.get("target_platform")
+        normalized_platform = (
+            target_platform.strip().lower()
+            if isinstance(target_platform, str) and target_platform.strip()
+            else None
+        )
+        normalized_language = (
+            language_used.strip().lower()
+            if isinstance(language_used, str) and language_used.strip()
+            else (
+                current_context.last_language
+                if isinstance(current_context, IntentContext)
+                else None
+            )
+        )
+        return IntentContext(
+            last_target_platform=normalized_platform,
+            last_action=normalized_action,
+            last_language=normalized_language,
+            updated_at=ConversationService._ensure_utc(updated_at).isoformat(),
+        )
+
+    @classmethod
+    def _resolve_next_active_context_after_refinement(
+        cls,
+        *,
+        current_context: IntentContext | None,
+        refinement_status: bool,
+        resolved_intent: dict[str, Any] | None,
+        language_used: str | None,
+        updated_at: datetime,
+    ) -> IntentContext | None:
+        if not refinement_status:
+            return current_context
+        return cls._next_active_context(
+            current_context=current_context,
+            resolved_intent=resolved_intent,
+            language_used=language_used,
+            updated_at=updated_at,
         )
 
     def _resolve_latest_intent_context(
@@ -810,6 +963,11 @@ class ConversationService(BaseModel):
                     inputs.source_url or project.source_url or ""
                 ).strip() or None
                 started_at = self._now_utc()
+                recent_messages = self._resolve_recent_messages(
+                    session=session,
+                    conversation_id=conversation.id or "",
+                )
+                recent_messages_digest = self._recent_messages_digest(recent_messages)
 
                 user_message: ConversationMessage | None = None
                 if not inputs.silent:
@@ -832,9 +990,15 @@ class ConversationService(BaseModel):
                     project_id=project.id or "",
                     conversation_id=conversation.id or "",
                 )
+                snapshot_version = self._snapshot_version(latest_snapshot)
                 latest_intent_context = self._resolve_latest_intent_context(
                     session=session,
                     conversation_id=conversation.id or "",
+                )
+                context_version = (
+                    latest_intent_context.updated_at
+                    if latest_intent_context is not None
+                    else None
                 )
                 run = self._db.insert_conversation_run(
                     session=session,
@@ -845,6 +1009,15 @@ class ConversationService(BaseModel):
                             "content": prompt,
                             "selected_model": model_name,
                             "source_url": source_url,
+                            "recent_messages_count": len(recent_messages),
+                            "recent_messages_digest": recent_messages_digest,
+                            "active_context": (
+                                latest_intent_context.model_dump(mode="json")
+                                if latest_intent_context is not None
+                                else None
+                            ),
+                            "snapshot_version": snapshot_version,
+                            "context_version": context_version,
                         },
                         response_payload={},
                         status="running",
@@ -864,6 +1037,7 @@ class ConversationService(BaseModel):
                         source_url=source_url,
                         snapshot=latest_snapshot,
                         intent_context=latest_intent_context,
+                        recent_messages=recent_messages,
                         assistant_token_callback=inputs.assistant_token_callback,
                     )
                 )
@@ -906,30 +1080,73 @@ class ConversationService(BaseModel):
                     )
 
                 finished_at = self._now_utc()
+                resolved_intent_payload = (
+                    refinement_result.intent.model_dump(mode="json")
+                    if refinement_result.intent is not None
+                    else None
+                )
+                language_used = (
+                    refinement_result.metadata.get("language_used")
+                    if isinstance(refinement_result.metadata, dict)
+                    else None
+                )
+                routing_payload = (
+                    refinement_result.intent.routing_metadata
+                    if refinement_result.intent is not None
+                    else {}
+                )
+                next_active_context = self._resolve_next_active_context_after_refinement(
+                    current_context=latest_intent_context,
+                    refinement_status=refinement_result.status,
+                    resolved_intent=resolved_intent_payload,
+                    language_used=(
+                        str(language_used) if isinstance(language_used, str) else None
+                    ),
+                    updated_at=finished_at,
+                )
                 run_request_payload = {
                     "content": prompt,
                     "selected_model": model_name,
                     "source_url": source_url,
+                    "recent_messages_count": len(recent_messages),
+                    "recent_messages_digest": recent_messages_digest,
+                    "snapshot_version": (
+                        refinement_result.metadata.get("snapshot_version")
+                        if isinstance(refinement_result.metadata, dict)
+                        else snapshot_version
+                    ),
+                    "context_version": (
+                        refinement_result.metadata.get("context_version")
+                        if isinstance(refinement_result.metadata, dict)
+                        else context_version
+                    ),
+                    "active_context": (
+                        next_active_context.model_dump(mode="json")
+                        if next_active_context is not None
+                        else None
+                    ),
+                    "routing_stage1": (
+                        routing_payload.get("stage1")
+                        if isinstance(routing_payload, dict)
+                        else None
+                    ),
+                    "routing_stage2": (
+                        routing_payload.get("stage2")
+                        if isinstance(routing_payload, dict)
+                        else None
+                    ),
                     "intent_context": (
                         latest_intent_context.model_dump(mode="json")
                         if latest_intent_context is not None
                         else None
                     ),
-                    "intent": (
-                        refinement_result.intent.model_dump(mode="json")
-                        if refinement_result.intent is not None
-                        else None
-                    ),
+                    "intent": resolved_intent_payload,
                     "action": (
                         refinement_result.intent.action.value
                         if refinement_result.intent is not None
                         else None
                     ),
-                    "language_used": (
-                        refinement_result.metadata.get("language_used")
-                        if isinstance(refinement_result.metadata, dict)
-                        else None
-                    ),
+                    "language_used": language_used,
                 }
                 run_request_payload = {
                     key: value

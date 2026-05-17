@@ -54,3 +54,51 @@ class CrewSettings(BaseModel):
         le=3600,
         description="Short-lived cache TTL for identical successful content-plan requests.",
     )
+    router_stage1_model: str | None = Field(
+        default="gpt-4o-mini",
+        description=(
+            "Optional explicit model for chat-router stage1 classifier (mini model). "
+            "If unset or invalid, router falls back to default candidate selection."
+        ),
+    )
+    router_stage2_model: str | None = Field(
+        default="gpt-4o-mini",
+        description=(
+            "Optional explicit model for chat-router stage2 action resolver. "
+            "If unset or invalid, router falls back to default candidate selection."
+        ),
+    )
+    router_stage1_confidence_threshold: float = Field(
+        default=0.55,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Minimum confidence required from stage1 classifier before executing action flow. "
+            "Below this threshold, router should return CLARIFY."
+        ),
+    )
+    router_stage2_confidence_threshold: float = Field(
+        default=0.60,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Minimum confidence required from stage2 action resolver. "
+            "Below this threshold, router should return CLARIFY."
+        ),
+    )
+    enable_policy_gate: bool = Field(
+        default=True,
+        description=(
+            "Enable deterministic policy gate for prompt/content safety and out-of-scope handling."
+        ),
+    )
+    policy_mode: str = Field(
+        default="hybrid",
+        description="Policy mode. Supported: hybrid, strict, soft_review.",
+    )
+    out_of_scope_behavior: str = Field(
+        default="refuse_suggest",
+        description=(
+            "Behavior for out-of-scope prompts. Supported: refuse_suggest, general_qa, clarify."
+        ),
+    )

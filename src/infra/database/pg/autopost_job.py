@@ -8,7 +8,7 @@ from functools import partial
 from typing import cast
 
 from shared.logging import get_logger
-from sqlalchemy import asc, desc, select
+from sqlalchemy import asc, desc, select, update
 from sqlalchemy.orm import Session
 
 from .models import AutopostJob as AutopostJobModel
@@ -36,6 +36,41 @@ class AutopostJobRepositoryImpl(AutopostJobRepository):
     ) -> AutopostJob | None:
         result = _update_autopost_job(session, model)
         return cast(AutopostJob, result) if result else None
+
+    def update_autopost_job_with_guard(
+        self,
+        session: Session,
+        *,
+        job_id: str,
+        expected_job_version: int | None,
+        expected_statuses: list[str] | None,
+        updates: dict[str, object],
+    ) -> AutopostJob | None:
+        guarded_updates = dict(updates)
+        statement = update(AutopostJobModel).where(
+            AutopostJobModel.id == job_id,
+            AutopostJobModel.deletedAt.is_(None),
+        )
+        if expected_job_version is not None:
+            statement = statement.where(
+                AutopostJobModel.job_version == expected_job_version
+            )
+            guarded_updates["job_version"] = expected_job_version + 1
+        if expected_statuses:
+            statement = statement.where(AutopostJobModel.status.in_(expected_statuses))
+
+        result = session.execute(
+            statement.values(**guarded_updates),
+            execution_options={"synchronize_session": False},
+        )
+        if result.rowcount != 1:
+            session.rollback()
+            return None
+        session.commit()
+        obj = session.get(AutopostJobModel, job_id)
+        if obj is None:
+            return None
+        return AutopostJob.model_validate(obj)
 
     def delete_autopost_job(self, session: Session, id: str) -> AutopostJob | None:
         result = _delete_autopost_job(session, id)

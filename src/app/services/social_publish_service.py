@@ -25,6 +25,7 @@ class SocialPublishInput(BaseModel):
     platform: str
     content: str
     page_id: str | None = None
+    idempotency_key: str | None = None
 
 
 class SocialPublishServiceOutput(BaseModel):
@@ -167,7 +168,7 @@ class SocialPublishService(BaseModel):
         return access_token, author_urn
 
     def _publish_linkedin(
-        self, user_id: str, content: str
+        self, user_id: str, content: str, idempotency_key: str | None = None
     ) -> SocialPublishServiceOutput:
         credentials = self._resolve_linkedin_credentials(user_id=user_id)
         if isinstance(credentials, SocialPublishServiceOutput):
@@ -179,6 +180,8 @@ class SocialPublishService(BaseModel):
             "Content-Type": "application/json",
             "X-Restli-Protocol-Version": "2.0.0",
         }
+        if isinstance(idempotency_key, str) and idempotency_key.strip():
+            headers["Idempotency-Key"] = idempotency_key.strip()
         payload = {
             "author": author_urn,
             "lifecycleState": "PUBLISHED",
@@ -341,7 +344,12 @@ class SocialPublishService(BaseModel):
         )
 
     def _publish_facebook(
-        self, *, user_id: str, content: str, page_id: str
+        self,
+        *,
+        user_id: str,
+        content: str,
+        page_id: str,
+        idempotency_key: str | None = None,
     ) -> SocialPublishServiceOutput:
         credentials = self._resolve_facebook_page_token(
             user_id=user_id, page_id=page_id
@@ -351,10 +359,14 @@ class SocialPublishService(BaseModel):
         page_token, _page = credentials
 
         url = f"https://graph.facebook.com/v19.0/{page_id.strip()}/feed"
+        headers = {}
+        if isinstance(idempotency_key, str) and idempotency_key.strip():
+            headers["Idempotency-Key"] = idempotency_key.strip()
         try:
             response = requests.post(
                 url,
                 data={"message": content, "access_token": page_token},
+                headers=headers or None,
                 timeout=self._timeout_seconds,
             )
         except requests.RequestException as exc:
@@ -439,6 +451,7 @@ class SocialPublishService(BaseModel):
         content: str,
         page_id: str,
         scheduled_at: datetime,
+        idempotency_key: str | None = None,
     ) -> SocialPublishServiceOutput:
         credentials = self._resolve_facebook_page_token(
             user_id=user_id, page_id=page_id
@@ -454,6 +467,9 @@ class SocialPublishService(BaseModel):
         scheduled_publish_time = int(scheduled_at_utc.timestamp())
 
         url = f"https://graph.facebook.com/v19.0/{page_id.strip()}/feed"
+        headers = {}
+        if isinstance(idempotency_key, str) and idempotency_key.strip():
+            headers["Idempotency-Key"] = idempotency_key.strip()
         try:
             response = requests.post(
                 url,
@@ -463,6 +479,7 @@ class SocialPublishService(BaseModel):
                     "scheduled_publish_time": str(scheduled_publish_time),
                     "access_token": page_token,
                 },
+                headers=headers or None,
                 timeout=self._timeout_seconds,
             )
         except requests.RequestException as exc:
@@ -560,7 +577,9 @@ class SocialPublishService(BaseModel):
                     code=400,
                 )
             if platform == "linkedin":
-                return self._publish_linkedin(user_id, content)
+                return self._publish_linkedin(
+                    user_id, content, inputs.idempotency_key
+                )
             if not page_id:
                 return SocialPublishServiceOutput(
                     status=False,
@@ -570,7 +589,10 @@ class SocialPublishService(BaseModel):
                     code=400,
                 )
             return self._publish_facebook(
-                user_id=user_id, content=content, page_id=page_id
+                user_id=user_id,
+                content=content,
+                page_id=page_id,
+                idempotency_key=inputs.idempotency_key,
             )
         except Exception as exc:
             logger.exception(

@@ -172,6 +172,24 @@ class SQLDatabase(
             self, session=session, model=model
         )
 
+    def update_autopost_job_with_guard(
+        self,
+        session: Session,
+        *,
+        job_id: str,
+        expected_job_version: int | None,
+        expected_statuses: list[str] | None,
+        updates: dict[str, object],
+    ) -> AutopostJob | None:
+        return AutopostJobRepositoryImpl.update_autopost_job_with_guard(
+            self,
+            session=session,
+            job_id=job_id,
+            expected_job_version=expected_job_version,
+            expected_statuses=expected_statuses,
+            updates=updates,
+        )
+
     def get_autopost_job_by_id(self, session: Session, id: str) -> AutopostJob | None:
         return AutopostJobRepositoryImpl.get_autopost_job_by_id(
             self, session=session, id=id

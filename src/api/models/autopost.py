@@ -12,8 +12,11 @@ ALLOWED_AUTPOST_STATUSES = {
     "QUEUED",
     "GENERATING",
     "READY",
+    "NEEDS_REVIEW",
     "SCHEDULED",
+    "PUBLISHING",
     "PUBLISHED",
+    "PUBLISH_UNKNOWN",
     "FAILED",
     "NEEDS_RECONNECT",
     "CANCELLED",
@@ -115,6 +118,12 @@ class AutopostJobAPIData(BaseModel):
     error_code: str | None = None
     error_message: str | None = None
     retry_count: int
+    attempt_count: int = 1
+    quality_score: float | None = None
+    quality_flags: list[str] = Field(default_factory=list)
+    next_action: str | None = None
+    job_version: int = 0
+    idempotency_key: str | None = None
     conversation_run_id: str | None = None
     createdAt: datetime | None = None
     updatedAt: datetime | None = None
@@ -138,6 +147,12 @@ class AutopostJobAPIData(BaseModel):
             error_code=job.error_code,
             error_message=job.error_message,
             retry_count=job.retry_count,
+            attempt_count=max(job.retry_count + 1, 1),
+            quality_score=job.quality_score,
+            quality_flags=list(job.quality_flags or []),
+            next_action=job.next_action,
+            job_version=job.job_version,
+            idempotency_key=job.idempotency_key,
             conversation_run_id=job.conversation_run_id,
             createdAt=job.createdAt,
             updatedAt=job.updatedAt,
@@ -173,6 +188,10 @@ class AutopostJobCreateAPIOutput(BaseModel):
     success: bool
     data: AutopostJobCreateAPIData | None = None
     error: str | None = None
+    connect_required: bool | None = None
+    connect_platform: str | None = None
+    connect_url: str | None = None
+    connect_reason: str | None = None
 
 
 class AutopostJobActionAPIData(BaseModel):
@@ -184,6 +203,10 @@ class AutopostJobActionAPIOutput(BaseModel):
     success: bool
     data: AutopostJobActionAPIData | None = None
     error: str | None = None
+
+
+class AutopostJobContentUpdateAPIInput(BaseModel):
+    content: str = Field(..., min_length=1)
 
 
 class AutopostCalendarAPIData(BaseModel):

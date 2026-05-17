@@ -148,8 +148,9 @@ def _chunk_text(value: str) -> list[str]:
     text = value or ""
     if not text:
         return []
-    # Keep trailing spaces with each token so FE can reconstruct natural spacing.
-    return re.findall(r"\S+\s*", text)
+    # Preserve standalone leading/newline spaces too, so streamed chunks do not
+    # collapse words (for example when upstream emits " world" as a separate delta).
+    return re.findall(r"\s+|\S+\s*", text)
 
 
 @conversation_router.get(

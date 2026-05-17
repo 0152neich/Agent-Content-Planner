@@ -23,6 +23,18 @@ class AutopostJobRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def update_autopost_job_with_guard(
+        self,
+        session: Session,
+        *,
+        job_id: str,
+        expected_job_version: int | None,
+        expected_statuses: list[str] | None,
+        updates: dict[str, object],
+    ) -> AutopostJob | None:
+        raise NotImplementedError
+
+    @abstractmethod
     def delete_autopost_job(self, session: Session, id: str) -> AutopostJob | None:
         raise NotImplementedError
 

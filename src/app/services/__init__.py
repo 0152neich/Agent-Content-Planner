@@ -28,11 +28,13 @@ from .chat_contracts import (
     ChatAction,
     ChatIntent,
     IntentContext,
+    RecentChatMessage,
     ChatRefinementInput,
     ChatRefinementOutput,
 )
 from .chat_intent_router import ChatIntentRouter
 from .chat_refinement_service import ChatRefinementService
+from .chat_policy_service import ChatPolicyService, PolicyDecision, PolicySeverity
 from .google_auth_service import (
     GoogleAuthCallbackInput,
     GoogleAuthService,
@@ -70,6 +72,7 @@ from .facebook_connection_service import (
     FacebookOAuthCallbackInput,
 )
 from .autopost_service import (
+    ApproveAutopostJobInput,
     AutopostService,
     AutopostServiceOutput,
     CancelAutopostJobInput,
@@ -77,7 +80,9 @@ from .autopost_service import (
     GetAutopostJobInput,
     ListAutopostCalendarInput,
     ListAutopostJobsInput,
+    ReconcileAutopostJobInput,
     RetryAutopostJobInput,
+    UpdateAutopostContentInput,
 )
 from .user_service import (
     CreateUserInput,
@@ -96,10 +101,14 @@ __all__ = [
     "ChatAction",
     "ChatIntent",
     "IntentContext",
+    "RecentChatMessage",
     "ChatIntentRouter",
     "ChatRefinementInput",
     "ChatRefinementOutput",
     "ChatRefinementService",
+    "ChatPolicyService",
+    "PolicyDecision",
+    "PolicySeverity",
     "GoogleAuthService",
     "GoogleAuthStartOutput",
     "ProjectService",
@@ -141,12 +150,15 @@ __all__ = [
     "FacebookOAuthCallbackInput",
     "AutopostService",
     "AutopostServiceOutput",
+    "ApproveAutopostJobInput",
     "CreateAutopostJobInput",
     "ListAutopostJobsInput",
     "GetAutopostJobInput",
     "CancelAutopostJobInput",
     "RetryAutopostJobInput",
     "ListAutopostCalendarInput",
+    "UpdateAutopostContentInput",
+    "ReconcileAutopostJobInput",
     "UpdateUserInput",
     "UpdateProjectInput",
     "UpdateConversationInput",

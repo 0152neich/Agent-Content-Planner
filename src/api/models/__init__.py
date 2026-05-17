@@ -17,6 +17,7 @@ from .autopost import (
     AutopostJobAPIOutput,
     AutopostJobCreateAPIInput,
     AutopostJobCreateAPIOutput,
+    AutopostJobContentUpdateAPIInput,
     AutopostJobListAPIOutput,
 )
 from .content import ContentPlanAPIInput
@@ -72,6 +73,7 @@ __all__ = [
     "LoginAPIOutput",
     "AutopostJobCreateAPIInput",
     "AutopostJobCreateAPIOutput",
+    "AutopostJobContentUpdateAPIInput",
     "AutopostJobAPIOutput",
     "AutopostJobListAPIOutput",
     "AutopostJobActionAPIOutput",

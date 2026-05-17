@@ -177,7 +177,7 @@ def test_process_full_regenerate_success_returns_full_snapshot(
             return_value=ContentPlanningOutput(
                 status=True, data=content_plan, code=200
             ),
-        ),
+        ) as process_content_plan,
         patch.object(
             ChatActionWorkflowService,
             "_compose_action_assistant_reply",
@@ -200,6 +200,8 @@ def test_process_full_regenerate_success_returns_full_snapshot(
     assert result.affected_sections == ["analysis", "social_posts"]
     assert compose_reply.call_args.kwargs["action"] == ChatAction.FULL_REGENERATE
     assert compose_reply.call_args.kwargs["prompt"] == "regenerate all"
+    planning_inputs = process_content_plan.call_args.args[0]
+    assert planning_inputs.additional_context == "regenerate all"
 
 
 def test_process_full_regenerate_returns_500_when_output_schema_is_invalid() -> None:

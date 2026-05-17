@@ -215,6 +215,8 @@ class ChatIntentAPIData(BaseModel):
     normalized_prompt: str
     confidence: float = 0.0
     reason: str | None = None
+    needs_clarification: bool = False
+    clarify_question: str | None = None
 
     @classmethod
     def from_domain(cls, payload: dict[str, Any]) -> "ChatIntentAPIData":
@@ -224,6 +226,13 @@ class ChatIntentAPIData(BaseModel):
             normalized_prompt=str(payload.get("normalized_prompt") or ""),
             confidence=float(payload.get("confidence") or 0.0),
             reason=payload.get("reason"),
+            needs_clarification=bool(payload.get("needs_clarification") or False),
+            clarify_question=(
+                str(payload.get("clarify_question"))
+                if isinstance(payload.get("clarify_question"), str)
+                and str(payload.get("clarify_question")).strip()
+                else None
+            ),
         )
 
 

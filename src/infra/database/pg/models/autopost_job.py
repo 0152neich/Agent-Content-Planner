@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Dated, Identified
@@ -43,6 +43,11 @@ class AutopostJob(Identified, Dated):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     conversation_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    quality_score: Mapped[float | None] = mapped_column(nullable=True)
+    quality_flags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    next_action: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    job_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     __table_args__ = (
         Index("ix_autopost_job_project_created", "project_id", "createdAt"),

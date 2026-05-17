@@ -12,7 +12,7 @@ from shared.base import BaseModel
 class ChatAction(str, Enum):
     FULL_REGENERATE = "FULL_REGENERATE"
     REANALYZE_ONLY = "REANALYZE_ONLY"
-    REWRITE_FACEBOOK_ONLY = "REWRITE_FACEBOOK_ONLY"
+    REWRITE_FACEBOOK_ONLY = "REWRITE_FACEBOOK_ONLY" 
     REWRITE_LINKEDIN_ONLY = "REWRITE_LINKEDIN_ONLY"
     REWRITE_STRATEGY_ONLY = "REWRITE_STRATEGY_ONLY"
     CLARIFY = "CLARIFY"
@@ -25,6 +25,9 @@ class ChatIntent(BaseModel):
     normalized_prompt: str
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     reason: str | None = None
+    needs_clarification: bool = False
+    clarify_question: str | None = None
+    routing_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class IntentContext(BaseModel):
@@ -32,6 +35,11 @@ class IntentContext(BaseModel):
     last_action: str | None = None
     last_language: str | None = None
     updated_at: str | None = None
+
+
+class RecentChatMessage(BaseModel):
+    role: str
+    content: str
 
 
 class ChatRefinementInput(BaseModel):
@@ -42,6 +50,7 @@ class ChatRefinementInput(BaseModel):
     source_url: str | None = None
     snapshot: dict[str, Any] | None = None
     intent_context: IntentContext | None = None
+    recent_messages: list[RecentChatMessage] = Field(default_factory=list)
     assistant_token_callback: Callable[[str], None] | None = None
 
 

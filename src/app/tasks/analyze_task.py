@@ -8,6 +8,8 @@ def create_analyze_task(agent: Agent, url: str, target_language: str) -> Task:
     return Task(
         description=(
             f"Analyze the blog content from URL: {url}\n\n"
+            "Additional context from current chat session:\n"
+            "{additional_context}\n\n"
             "Business objective:\n"
             "- Produce Marketing Ops analysis that is decision-ready for social campaigns.\n"
             "- Follow evidence-only mode: each strong claim must be backed by explicit source evidence.\n\n"

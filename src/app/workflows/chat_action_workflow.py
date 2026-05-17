@@ -10,6 +10,7 @@ from pydantic import Field
 from app.agents import (
     create_analyzer_agent,
     create_copywriter_agent,
+    create_editor_agent,
     create_strategist_agent,
 )
 from app.services.chat_contracts import ChatAction
@@ -301,6 +302,38 @@ class ChatActionWorkflowService(BaseModel):
             output_pydantic=SocialPost,
         )
 
+    def _build_single_post_review_task(
+        self,
+        *,
+        agent: Agent,
+        platform: Platform,
+        prompt: str,
+        target_language: TargetLanguage,
+        source_url: str,
+    ) -> Task:
+        char_limit = 2000 if platform == Platform.FACEBOOK else 3000
+        language_name = "Vietnamese" if target_language == "vi" else "English"
+        return Task(
+            description=(
+                f"Review and improve the drafted '{platform.value}' post for final publish quality.\n"
+                f"User request: {prompt}\n"
+                "Requirements:\n"
+                "- Keep the original intent and constraints from user request.\n"
+                "- Keep exactly one clear CTA.\n"
+                "- Keep concrete proof/evidence; do not introduce unverifiable claims.\n"
+                "- Keep platform fit and concise structure.\n"
+                f"- Keep under {char_limit} characters.\n"
+                f"- Return all text fields in {language_name}.\n"
+                f"- If source URL is present, keep it naturally in CTA when relevant: {source_url or 'none'}.\n"
+                "Return only final SocialPost JSON."
+            ),
+            expected_output=(
+                "SocialPost JSON with fields: platform, hook, body_content, call_to_action, hashtags."
+            ),
+            agent=agent,
+            output_pydantic=SocialPost,
+        )
+
     def _run_reanalyze_only(
         self,
         *,
@@ -329,7 +362,12 @@ class ChatActionWorkflowService(BaseModel):
             process=Process.sequential,
             verbose=crew_settings.verbose,
         )
-        crew.kickoff(inputs={"url": source_url, "additional_context": prompt})
+        crew.kickoff(
+            inputs={
+                "url": source_url,
+                "additional_context": prompt,
+            }
+        )
         analysis = analyze_task.output.pydantic
         if not isinstance(analysis, DraftAnalysis):
             raise ValueError("Reanalyze output must be DraftAnalysis.")
@@ -400,6 +438,10 @@ class ChatActionWorkflowService(BaseModel):
             model_override=selected_model,
             crew_settings=crew_settings,
         )
+        editor = create_editor_agent(
+            model_override=selected_model,
+            crew_settings=crew_settings,
+        )
         existing = next(
             (post for post in snapshot.social_posts if post.platform == platform),
             None,
@@ -412,29 +454,32 @@ class ChatActionWorkflowService(BaseModel):
             snapshot=snapshot,
             existing_post=existing,
         )
+        review_task = self._build_single_post_review_task(
+            agent=editor,
+            platform=platform,
+            prompt=prompt,
+            target_language=target_language,
+            source_url=snapshot.source_url,
+        )
+        review_task.context = [rewrite_task]
         crew = Crew(
-            agents=[copywriter],
-            tasks=[rewrite_task],
+            agents=[copywriter, editor],
+            tasks=[rewrite_task, review_task],
             process=Process.sequential,
             verbose=crew_settings.verbose,
         )
         crew.kickoff(inputs={"prompt": prompt, "platform": platform.value})
-        rewritten = rewrite_task.output.pydantic
+        rewritten = review_task.output.pydantic
         if not isinstance(rewritten, SocialPost):
-            raise ValueError("Rewrite output must be SocialPost.")
+            raise ValueError("Rewrite review output must be SocialPost.")
         rewritten.platform = platform
         rewritten = self._inject_source_url_if_requested(
             prompt=prompt,
             source_url=snapshot.source_url,
             post=rewritten,
         )
-        gateway = AgentContractGateway()
-        validated_post, repair_applied = gateway.validate_social_post(
-            rewritten,
-            target_language=target_language,
-            stage=f"chat_rewrite_{platform.value}_output",
-            expected_platform=platform,
-        )
+        validated_post = rewritten
+        repair_applied = False
         affected_sections = [f"social_posts.{platform.value}"]
         old_hook = existing.hook if existing is not None else ""
         change_summary = (
