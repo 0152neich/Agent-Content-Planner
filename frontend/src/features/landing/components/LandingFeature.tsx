@@ -5,6 +5,7 @@ import { Brain, Search, PenTool, CheckCircle, ArrowRight } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/Common/LanguageSwitcher';
+import { useSnackbar } from '@/components/AppLayout/SnackbarContext';
 import brandLogo from '@/assets/app-logos/brand-logo.png';
 import openAiLogo from '@/assets/ai-logos/openai.svg';
 import geminiLogo from '@/assets/ai-logos/gemini.svg';
@@ -23,6 +24,7 @@ const LOGO_ITEM_HEIGHT = 66;
 
 export const LandingFeature: React.FC = () => {
   const { t } = useTranslation();
+  const { showSnackbar } = useSnackbar();
   const logoCarouselControls = useAnimationControls();
 
   const features = [
@@ -109,6 +111,10 @@ export const LandingFeature: React.FC = () => {
     };
   }, [logoCarouselControls]);
 
+  const notifyFeatureInDevelopment = () => {
+    showSnackbar('Tính năng này chưa phát triển.', 'info');
+  };
+
   return (
     <Box
       sx={{
@@ -172,7 +178,12 @@ export const LandingFeature: React.FC = () => {
 
             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 3 }}>
               {['Platform', 'Resources', 'Docs', 'Pricing'].map((navItem) => (
-                <Typography key={navItem} variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.88)', fontWeight: 600, cursor: 'pointer' }}>
+                <Typography
+                  key={navItem}
+                  variant="body2"
+                  onClick={notifyFeatureInDevelopment}
+                  sx={{ color: 'rgba(255, 255, 255, 0.88)', fontWeight: 600, cursor: 'pointer' }}
+                >
                   {navItem}
                 </Typography>
               ))}
@@ -267,7 +278,12 @@ export const LandingFeature: React.FC = () => {
                 >
                   {t('landing.startTrial')}
                 </Button>
-                <Button variant="contained" size="large" sx={{ py: 1.7, px: 5, fontSize: '1.02rem', borderRadius: '9999px', fontWeight: 700, textTransform: 'none', bgcolor: 'rgba(255, 255, 255, 0.2)', color: '#f8f5ff', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.32)' } }}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={notifyFeatureInDevelopment}
+                  sx={{ py: 1.7, px: 5, fontSize: '1.02rem', borderRadius: '9999px', fontWeight: 700, textTransform: 'none', bgcolor: 'rgba(255, 255, 255, 0.2)', color: '#f8f5ff', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.32)' } }}
+                >
                   Book a Demo
                 </Button>
               </Box>
@@ -342,10 +358,18 @@ export const LandingFeature: React.FC = () => {
             © 2026 AI Content Planner.
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <Typography variant="body2" sx={{ fontWeight: 500, color: 'rgba(241, 237, 255, 0.76)', cursor: 'pointer' }}>
+            <Typography
+              variant="body2"
+              onClick={notifyFeatureInDevelopment}
+              sx={{ fontWeight: 500, color: 'rgba(241, 237, 255, 0.76)', cursor: 'pointer' }}
+            >
               Terms
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 500, color: 'rgba(241, 237, 255, 0.76)', cursor: 'pointer' }}>
+            <Typography
+              variant="body2"
+              onClick={notifyFeatureInDevelopment}
+              sx={{ fontWeight: 500, color: 'rgba(241, 237, 255, 0.76)', cursor: 'pointer' }}
+            >
               Privacy Policy
             </Typography>
           </Box>

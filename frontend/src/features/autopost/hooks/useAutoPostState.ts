@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { ensureAuthenticatedAccessToken, meApi } from '@/features/auth/api/authApi';
+import { startFacebookConnectApi } from '@/features/profile/api/facebookApi';
+import { startLinkedInConnectApi } from '@/features/profile/api/linkedinApi';
 import {
+  type AutopostCreateJobPayload,
   cancelAutopostJobApi,
+  type AutopostCreateJobError,
   createAutopostJobApi,
   getFacebookPagesApi,
   getProjectHistoryApi,
@@ -40,6 +44,25 @@ export type AutopostJobViewItem = AutopostJobItem & {
   project_name: string;
 };
 
+const PENDING_CONNECT_STORAGE_KEY = 'autopost.pending.create_job.v1';
+const PENDING_CONNECT_MAX_AGE_MS = 30 * 60 * 1000;
+const JOB_POLL_INTERVAL_MS = 5000;
+const ACTIVE_JOB_STATUSES = new Set([
+  'QUEUED',
+  'GENERATING',
+  'READY',
+  'SCHEDULED',
+  'PUBLISHING',
+  'PUBLISH_UNKNOWN',
+]);
+
+export type AutoPostConnectPrompt = {
+  message: string;
+  platform: AutopostPlatform | null;
+  connectUrl: string | null;
+  connectReason: string | null;
+};
+
 type AutoPostState = {
   user: UserItem | null;
   project: ProjectItem | null;
@@ -51,6 +74,7 @@ type AutoPostState = {
   loading: boolean;
   submitting: boolean;
   error: string | null;
+  connectPrompt: AutoPostConnectPrompt | null;
   keyword: string;
   platform: AutopostPlatform;
   publishMode: 'now' | 'schedule';
@@ -70,6 +94,8 @@ type AutoPostState = {
   setPageId: (value: string) => void;
   setScheduleProjectId: (value: string) => void;
   setDialogProjectId: (value: string) => void;
+  dismissConnectPrompt: () => void;
+  startSocialConnect: (onMissingUrl?: () => void) => Promise<void>;
   submitJob: () => Promise<void>;
   reloadJobs: () => Promise<void>;
   retryJob: (jobId: string) => Promise<void>;
@@ -155,8 +181,83 @@ const deriveLatestChatDraftsForProject = (
   );
 };
 
+const isAutopostCreateJobPayload = (value: unknown): value is AutopostCreateJobPayload => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  const platform = String(candidate.platform || '').toLowerCase();
+  const projectId = String(candidate.project_id || '').trim();
+  const scheduledAt = String(candidate.scheduled_at || '').trim();
+  if (!projectId || !scheduledAt) return false;
+  if (platform !== 'linkedin' && platform !== 'facebook') return false;
+  return true;
+};
+
+const persistPendingConnectPayload = (payload: AutopostCreateJobPayload) => {
+  try {
+    sessionStorage.setItem(
+      PENDING_CONNECT_STORAGE_KEY,
+      JSON.stringify({
+        created_at: Date.now(),
+        payload,
+      }),
+    );
+  } catch {
+    // no-op
+  }
+};
+
+const readPendingConnectPayload = (): AutopostCreateJobPayload | null => {
+  try {
+    const raw = sessionStorage.getItem(PENDING_CONNECT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      created_at?: unknown;
+      payload?: unknown;
+    };
+    const createdAt = Number(parsed.created_at || 0);
+    if (!Number.isFinite(createdAt) || Date.now() - createdAt > PENDING_CONNECT_MAX_AGE_MS) {
+      sessionStorage.removeItem(PENDING_CONNECT_STORAGE_KEY);
+      return null;
+    }
+    if (!isAutopostCreateJobPayload(parsed.payload)) {
+      sessionStorage.removeItem(PENDING_CONNECT_STORAGE_KEY);
+      return null;
+    }
+    return parsed.payload;
+  } catch {
+    return null;
+  }
+};
+
+const clearPendingConnectPayload = () => {
+  try {
+    sessionStorage.removeItem(PENDING_CONNECT_STORAGE_KEY);
+  } catch {
+    // no-op
+  }
+};
+
+const consumeConnectedQueryFlags = (): boolean => {
+  try {
+    const url = new URL(window.location.href);
+    const hasLinkedinConnected = url.searchParams.get('linkedin') === 'connected';
+    const hasFacebookConnected = url.searchParams.get('facebook') === 'connected';
+    const hasConnectedFlag = hasLinkedinConnected || hasFacebookConnected;
+    if (!hasConnectedFlag) return false;
+
+    url.searchParams.delete('linkedin');
+    url.searchParams.delete('facebook');
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, '', nextUrl);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const useAutoPostState = (): AutoPostState => {
   const navigate = useNavigate();
+  const resumeAttemptedRef = useRef(false);
   const [user, setUser] = useState<UserItem | null>(null);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
@@ -167,6 +268,7 @@ export const useAutoPostState = (): AutoPostState => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectPrompt, setConnectPrompt] = useState<AutoPostConnectPrompt | null>(null);
   const [keyword, setKeyword] = useState('');
   const [platform, setPlatform] = useState<AutopostPlatform>('linkedin');
   const [publishMode, setPublishMode] = useState<'now' | 'schedule'>('now');
@@ -196,6 +298,66 @@ export const useAutoPostState = (): AutoPostState => {
     },
     [],
   );
+
+  const dismissConnectPrompt = useCallback(() => {
+    setConnectPrompt(null);
+  }, []);
+
+  const startSocialConnect = useCallback(async (onMissingUrl?: () => void) => {
+    const platform = connectPrompt?.platform;
+    if (platform === 'linkedin' || platform === 'facebook') {
+      const accessToken = await ensureAuthenticatedAccessToken();
+      if (!accessToken) {
+        navigate({ to: '/login' });
+        return;
+      }
+      try {
+        const returnTo = `${window.location.pathname}${window.location.search}`;
+        const response = platform === 'linkedin'
+          ? await startLinkedInConnectApi(accessToken, returnTo)
+          : await startFacebookConnectApi(accessToken, returnTo);
+        const authorizeUrl = String(response.authorize_url || '').trim();
+        if (authorizeUrl) {
+          window.location.href = authorizeUrl;
+          return;
+        }
+      } catch {
+        // Fall back to connectUrl from autopost error payload.
+      }
+    }
+    const url = (connectPrompt?.connectUrl || '').trim();
+    if (url) {
+      window.location.href = url;
+      return;
+    }
+    onMissingUrl?.();
+  }, [connectPrompt, navigate]);
+
+  const handleCreateJobError = useCallback((
+    submitError: unknown,
+    fallbackMessage: string,
+    fallbackPlatform: AutopostPlatform,
+    pendingPayload?: AutopostCreateJobPayload,
+  ) => {
+    const structuredError = submitError as AutopostCreateJobError;
+    const message = submitError instanceof Error ? submitError.message : fallbackMessage;
+    if (structuredError?.connectRequired) {
+      setError(null);
+      setConnectPrompt({
+        message,
+        platform: structuredError.connectPlatform || fallbackPlatform,
+        connectUrl: structuredError.connectUrl || null,
+        connectReason: structuredError.connectReason || null,
+      });
+      if (pendingPayload) {
+        persistPendingConnectPayload(pendingPayload);
+      }
+      return;
+    }
+    setError(message);
+    setConnectPrompt(null);
+    clearPendingConnectPayload();
+  }, []);
 
   const loadProjectDatasets = useCallback(async (
     accessToken: string,
@@ -373,13 +535,14 @@ export const useAutoPostState = (): AutoPostState => {
 
     setSubmitting(true);
     setError(null);
+    setConnectPrompt(null);
     try {
       const accessToken = await ensureAuthenticatedAccessToken();
       if (!accessToken) {
         navigate({ to: '/login' });
         return;
       }
-      await createAutopostJobApi(accessToken, {
+      const requestPayload: AutopostCreateJobPayload = {
         project_id: targetProjectId,
         platform,
         keyword: normalizedKeyword,
@@ -387,12 +550,28 @@ export const useAutoPostState = (): AutoPostState => {
         publish_mode: publishMode,
         page_id: platform === 'facebook' ? pageId : undefined,
         source_mode: 'keyword',
-      });
+      };
+      await createAutopostJobApi(accessToken, requestPayload);
+      clearPendingConnectPayload();
       setKeyword('');
       switchProject(targetProjectId);
       await refreshAggregatedData(accessToken, projects);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Failed to create auto-post job.');
+      const requestPayload: AutopostCreateJobPayload = {
+        project_id: targetProjectId,
+        platform,
+        keyword: normalizedKeyword,
+        scheduled_at: (parsedTime || new Date()).toISOString(),
+        publish_mode: publishMode,
+        page_id: platform === 'facebook' ? pageId : undefined,
+        source_mode: 'keyword',
+      };
+      handleCreateJobError(
+        submitError,
+        'Failed to create auto-post job.',
+        platform,
+        requestPayload,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -410,6 +589,7 @@ export const useAutoPostState = (): AutoPostState => {
     scheduledDate,
     scheduledTime,
     switchProject,
+    handleCreateJobError,
   ]);
 
   const scheduleFromContent = useCallback(async (
@@ -458,6 +638,7 @@ export const useAutoPostState = (): AutoPostState => {
 
     setSubmitting(true);
     setError(null);
+    setConnectPrompt(null);
     try {
       const accessToken = await ensureAuthenticatedAccessToken();
       if (!accessToken) {
@@ -465,7 +646,7 @@ export const useAutoPostState = (): AutoPostState => {
         return false;
       }
       const sourceMode: AutopostSourceMode = 'content';
-      await createAutopostJobApi(accessToken, {
+      const requestPayload: AutopostCreateJobPayload = {
         project_id: targetProjectId,
         platform: payload.platform,
         scheduled_at: (resolvedTime || new Date()).toISOString(),
@@ -473,20 +654,95 @@ export const useAutoPostState = (): AutoPostState => {
         page_id: payload.platform === 'facebook' ? payload.pageId : undefined,
         source_mode: sourceMode,
         content: normalizedContent,
-      });
+      };
+      await createAutopostJobApi(accessToken, requestPayload);
+      clearPendingConnectPayload();
       switchProject(targetProjectId);
       setScheduleProjectId(targetProjectId);
       await refreshAggregatedData(accessToken, projects);
       return true;
     } catch (submitError) {
-      setError(
-        submitError instanceof Error ? submitError.message : 'Failed to create auto-post job from content.',
+      const sourceMode: AutopostSourceMode = 'content';
+      const requestPayload: AutopostCreateJobPayload = {
+        project_id: targetProjectId,
+        platform: payload.platform,
+        scheduled_at: (resolvedTime || new Date()).toISOString(),
+        publish_mode: payload.publishMode,
+        page_id: payload.platform === 'facebook' ? payload.pageId : undefined,
+        source_mode: sourceMode,
+        content: normalizedContent,
+      };
+      handleCreateJobError(
+        submitError,
+        'Failed to create auto-post job from content.',
+        payload.platform,
+        requestPayload,
       );
       return false;
     } finally {
       setSubmitting(false);
     }
-  }, [navigate, projectMap, projects, refreshAggregatedData, resolveScheduledAt, switchProject]);
+  }, [
+    navigate,
+    projectMap,
+    projects,
+    refreshAggregatedData,
+    resolveScheduledAt,
+    switchProject,
+    handleCreateJobError,
+  ]);
+
+  const resumePendingConnectSubmission = useCallback(async () => {
+    if (resumeAttemptedRef.current) {
+      return;
+    }
+    if (!consumeConnectedQueryFlags()) {
+      return;
+    }
+    const pendingPayload = readPendingConnectPayload();
+    if (!pendingPayload) {
+      return;
+    }
+    resumeAttemptedRef.current = true;
+    setSubmitting(true);
+    setError(null);
+    setConnectPrompt(null);
+    try {
+      const accessToken = await ensureAuthenticatedAccessToken();
+      if (!accessToken) {
+        navigate({ to: '/login' });
+        return;
+      }
+      await createAutopostJobApi(accessToken, pendingPayload);
+      clearPendingConnectPayload();
+      setKeyword('');
+      switchProject(pendingPayload.project_id);
+      setScheduleProjectId(pendingPayload.project_id);
+      await refreshAggregatedData(accessToken, projects);
+    } catch (submitError) {
+      handleCreateJobError(
+        submitError,
+        'Failed to resume auto-post after social connection.',
+        pendingPayload.platform,
+        pendingPayload,
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    handleCreateJobError,
+    navigate,
+    projects,
+    refreshAggregatedData,
+    switchProject,
+  ]);
+
+  useEffect(() => {
+    if (loading || !projects.length) {
+      return;
+    }
+    void resumePendingConnectSubmission();
+  }, [loading, projects.length, resumePendingConnectSubmission]);
 
   const retryJob = useCallback(async (jobId: string) => {
     const accessToken = await ensureAuthenticatedAccessToken();
@@ -515,6 +771,37 @@ export const useAutoPostState = (): AutoPostState => {
     [jobs],
   );
 
+  const hasActiveJobs = useMemo(
+    () => jobs.some((job) => ACTIVE_JOB_STATUSES.has(job.status)),
+    [jobs],
+  );
+
+  useEffect(() => {
+    if (!hasActiveJobs || !projects.length) {
+      return;
+    }
+
+    let cancelled = false;
+    const poll = async () => {
+      const accessToken = await ensureAuthenticatedAccessToken();
+      if (!accessToken || cancelled) return;
+      try {
+        await refreshAggregatedData(accessToken, projects);
+      } catch {
+        // ignore transient polling errors
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void poll();
+    }, JOB_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [hasActiveJobs, projects, refreshAggregatedData]);
+
   return {
     user,
     project,
@@ -526,6 +813,7 @@ export const useAutoPostState = (): AutoPostState => {
     loading,
     submitting,
     error,
+    connectPrompt,
     keyword,
     platform,
     publishMode,
@@ -545,6 +833,8 @@ export const useAutoPostState = (): AutoPostState => {
     setPageId,
     setScheduleProjectId,
     setDialogProjectId,
+    dismissConnectPrompt,
+    startSocialConnect,
     submitJob,
     reloadJobs,
     retryJob,

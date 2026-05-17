@@ -20,6 +20,32 @@ import type {
   AutopostSourceMode,
 } from '../types';
 
+export type AutopostCreateJobError = Error & {
+  status?: number;
+  connectRequired?: boolean;
+  connectPlatform?: AutopostPlatform | null;
+  connectUrl?: string | null;
+  connectReason?: string | null;
+};
+
+export type AutopostCreateJobPayload = {
+  project_id: string;
+  platform: AutopostPlatform;
+  keyword?: string;
+  scheduled_at: string;
+  publish_mode?: 'now' | 'schedule';
+  page_id?: string;
+  source_mode?: AutopostSourceMode;
+  content?: string;
+};
+
+type AutopostCreateJobEnvelope = ApiEnvelope<{ id: string; status: string }> & {
+  connect_required?: boolean | null;
+  connect_platform?: string | null;
+  connect_url?: string | null;
+  connect_reason?: string | null;
+};
+
 export const getHealthApi = async (): Promise<{ status: string }> =>
   requestJson<{ status: string; message?: string }>('/health', {
     headers: { 'Content-Type': 'application/json' },
@@ -439,23 +465,45 @@ export const getFacebookPagesApi = async (
 
 export const createAutopostJobApi = async (
   accessToken: string,
-  payload: {
-    project_id: string;
-    platform: AutopostPlatform;
-    keyword?: string;
-    scheduled_at: string;
-    publish_mode?: 'now' | 'schedule';
-    page_id?: string;
-    source_mode?: AutopostSourceMode;
-    content?: string;
-  },
-): Promise<{ id: string; status: string }> =>
-  requestEnvelope<{ id: string; status: string }>('/autopost/jobs', {
-    method: 'POST',
-    headers: withAuthHeaders(accessToken),
-    credentials: 'include',
-    body: JSON.stringify(payload),
-  });
+  payload: AutopostCreateJobPayload,
+): Promise<{ id: string; status: string }> => {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/autopost/jobs`, {
+      method: 'POST',
+      headers: withAuthHeaders(accessToken),
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new Error('Failed to fetch. Please check backend URL, CORS, and network connectivity.');
+  }
+
+  let body: AutopostCreateJobEnvelope | null = null;
+  try {
+    body = (await response.json()) as AutopostCreateJobEnvelope;
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok || !body?.success || !body.data) {
+    const err = new Error(
+      body?.error || `Request failed with status ${response.status}.`,
+    ) as AutopostCreateJobError;
+    const normalizedPlatform = String(body?.connect_platform || '').trim().toLowerCase();
+    err.status = response.status;
+    err.connectRequired = Boolean(body?.connect_required);
+    err.connectPlatform =
+      normalizedPlatform === 'linkedin' || normalizedPlatform === 'facebook'
+        ? normalizedPlatform
+        : null;
+    err.connectUrl = body?.connect_url ? String(body.connect_url) : null;
+    err.connectReason = body?.connect_reason ? String(body.connect_reason) : null;
+    throw err;
+  }
+
+  return body.data;
+};
 
 export const listAutopostJobsApi = async (
   accessToken: string,

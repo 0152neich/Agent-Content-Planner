@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -37,7 +38,11 @@ import { SocialCardLinkedIn } from '@/features/workspace/components/SocialCardLi
 import type { AutopostJobItem } from '@/features/workspace/types';
 import { setWorkspaceIntent } from '@/features/workspace/workspaceIntentStorage';
 import { useAutoPostState } from '../hooks/useAutoPostState';
-import type { AutoPostFeedFilter, CurrentChatDraftItem } from '../hooks/useAutoPostState';
+import type {
+  AutoPostConnectPrompt,
+  AutoPostFeedFilter,
+  CurrentChatDraftItem,
+} from '../hooks/useAutoPostState';
 
 const toBadgeColor = (
   status: AutopostJobItem['status'],
@@ -71,6 +76,19 @@ const toDraftExcerpt = (value: string, max = 180): string => {
   return `${normalized.slice(0, max).trim()}...`;
 };
 
+const toJobTitle = (job: AutopostJobItem): string => {
+  const content = (job.final_content || job.draft_content || '').replace(/\s+/g, ' ').trim();
+  if (content) {
+    return toDraftExcerpt(content, 110);
+  }
+  const keyword = (job.keyword || '').replace(/\s+/g, ' ').trim();
+  const cleaned = keyword.replace(
+    /^manual content \((linkedin|facebook)\)\s*(\[[a-f0-9]{8,}\])?\s*/i,
+    '',
+  ).trim();
+  return cleaned || keyword || 'Auto-post draft';
+};
+
 const formatScheduleSummary = (dateText: string, timeText: string): string => {
   const parsed = new Date(`${dateText}T${timeText}`);
   if (Number.isNaN(parsed.getTime())) return 'Scheduled -> Invalid date';
@@ -99,6 +117,19 @@ const FEED_FILTER_OPTIONS: Array<{ value: AutoPostFeedFilter; label: string }> =
   { value: 'unscheduled', label: 'Chưa lên lịch' },
 ];
 
+const resolveConnectPromptText = (prompt: AutoPostConnectPrompt): string => {
+  if (prompt.message.trim()) {
+    return prompt.message;
+  }
+  if (prompt.platform === 'facebook') {
+    return 'Facebook account is not connected. Please connect to continue.';
+  }
+  if (prompt.platform === 'linkedin') {
+    return 'LinkedIn account is not connected. Please connect to continue.';
+  }
+  return 'Your social account is not connected. Please connect to continue.';
+};
+
 const AutoPostFeature: React.FC = () => {
   const navigate = useNavigate();
   const [profileDialogOpen, setProfileDialogOpen] = React.useState(false);
@@ -123,6 +154,8 @@ const AutoPostFeature: React.FC = () => {
     feedFilter,
     loading,
     submitting,
+    error,
+    connectPrompt,
     keyword,
     platform,
     publishMode,
@@ -142,6 +175,8 @@ const AutoPostFeature: React.FC = () => {
     setPageId,
     setScheduleProjectId,
     setDialogProjectId,
+    dismissConnectPrompt,
+    startSocialConnect,
     submitJob,
     retryJob,
     cancelJob,
@@ -376,6 +411,35 @@ const AutoPostFeature: React.FC = () => {
           >
             Generate one post per execution, then publish now or schedule.
           </Typography>
+          {error ? (
+            <Alert severity="error" sx={{ mb: 2.5 }}>
+              {error}
+            </Alert>
+          ) : null}
+          {connectPrompt ? (
+            <Alert
+              severity="warning"
+              sx={{ mb: 2.5 }}
+              action={(
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => {
+                      void startSocialConnect(() => setProfileDialogOpen(true));
+                    }}
+                  >
+                    Connect
+                  </Button>
+                  <Button size="small" onClick={dismissConnectPrompt}>
+                    Dismiss
+                  </Button>
+                </Stack>
+              )}
+            >
+              {resolveConnectPromptText(connectPrompt)}
+            </Alert>
+          ) : null}
 
           <Paper
             sx={{
@@ -838,7 +902,7 @@ const AutoPostFeature: React.FC = () => {
                       justifyContent="space-between"
                     >
                       <Box>
-                        <Typography sx={{ fontWeight: 700 }}>{job.keyword}</Typography>
+                        <Typography sx={{ fontWeight: 700 }}>{toJobTitle(job)}</Typography>
                         <Typography variant="body2" color="text.secondary">
                           {job.project_name} • {job.platform.toUpperCase()} • {formatDate(job.scheduled_at)}
                         </Typography>
@@ -916,6 +980,34 @@ const AutoPostFeature: React.FC = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ pt: 0.5 }}>
+            {error ? (
+              <Alert severity="error">
+                {error}
+              </Alert>
+            ) : null}
+            {connectPrompt ? (
+              <Alert
+                severity="warning"
+                action={(
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => {
+                        void startSocialConnect(() => setProfileDialogOpen(true));
+                      }}
+                    >
+                      Connect
+                    </Button>
+                    <Button size="small" onClick={dismissConnectPrompt}>
+                      Dismiss
+                    </Button>
+                  </Stack>
+                )}
+              >
+                {resolveConnectPromptText(connectPrompt)}
+              </Alert>
+            ) : null}
             <FormControl fullWidth>
               <InputLabel id="dialog-project-label">Project</InputLabel>
               <Select
