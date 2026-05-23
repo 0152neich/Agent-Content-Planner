@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Save } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { useSnackbar } from '~components/AppLayout';
 import { ensureAuthenticatedAccessToken } from '@/features/auth/api/authApi';
 import { getProjectByIdApi, updateProjectApi } from '@/features/workspace/api/workspaceApi';
@@ -60,6 +61,7 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
   onSaved,
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { showSnackbar } = useSnackbar();
   const [project, setProject] = useState<ProjectItem | null>(null);
   const [projectName, setProjectName] = useState('');
@@ -88,7 +90,7 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
 
     const activeProjectId = getActiveProjectId();
     if (!activeProjectId) {
-      setError('No active project selected.');
+      setError(t('settingsProject.errors.noActiveProject'));
       setLoading(false);
       return;
     }
@@ -104,7 +106,7 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
         buildDefaultModelVisibility(MODEL_OPTIONS),
       );
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Failed to load project settings.');
+      setError(loadError instanceof Error ? loadError.message : t('settingsProject.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -133,7 +135,7 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
     setError(null);
     setModelVisibilityState((prev) => {
       if (!nextEnabled && prev[modelValue] !== false && countEnabled(prev) <= 1) {
-        setError('At least one model must remain enabled.');
+        setError(t('settingsProject.errors.atLeastOneModel'));
         return prev;
       }
       const next = { ...prev, [modelValue]: nextEnabled };
@@ -156,11 +158,11 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
 
     const normalizedName = projectName.trim();
     if (!normalizedName) {
-      setError('Project name is required.');
+      setError(t('settingsProject.errors.projectNameRequired'));
       return;
     }
     if (enabledCount < 1) {
-      setError('At least one model must remain enabled.');
+      setError(t('settingsProject.errors.atLeastOneModel'));
       return;
     }
 
@@ -176,10 +178,10 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
 
       setProjectModelVisibility(project.id, modelVisibility);
       notifyProjectUpdated();
-      showSnackbar('Project settings saved successfully.', 'success');
+      showSnackbar(t('settingsProject.saved'), 'success');
       onSaved?.();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Failed to save project settings.');
+      setError(saveError instanceof Error ? saveError.message : t('settingsProject.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -191,10 +193,10 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
         <>
           <Box sx={{ mb: 1.8 }}>
             <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.4 }}>
-              Project settings
+              {t('settingsProject.title')}
             </Typography>
             <Typography color="text.secondary">
-              Configure the active project and choose models shown in workspace chat.
+              {t('settingsProject.subtitle')}
             </Typography>
           </Box>
           <Divider sx={{ mb: 2.4 }} />
@@ -204,7 +206,7 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
       {loading ? (
         <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <CircularProgress size={18} />
-          <Typography color="text.secondary">Loading settings...</Typography>
+          <Typography color="text.secondary">{t('settingsProject.loading')}</Typography>
         </Box>
       ) : (
         <Box component="form" onSubmit={handleSave}>
@@ -223,14 +225,14 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
               }}
             >
               <TextField
-                label="Project name"
+                label={t('settingsProject.fields.projectName')}
                 value={projectName}
                 onChange={(event) => setProjectName(event.target.value)}
                 required
                 fullWidth
               />
               <TextField
-                label="Project link"
+                label={t('settingsProject.fields.projectLink')}
                 value={project?.source_url || ''}
                 fullWidth
                 InputProps={{ readOnly: true }}
@@ -247,10 +249,10 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
               }}
             >
               <Typography sx={{ fontWeight: 700, fontSize: '0.95rem' }}>
-                Chat model visibility
+                {t('settingsProject.modelVisibility.title')}
               </Typography>
               <Typography color="text.secondary" sx={{ mt: 0.45, mb: 1.1, fontSize: '0.88rem' }}>
-                Enabled models appear in the model dropdown for this project only.
+                {t('settingsProject.modelVisibility.subtitle')}
               </Typography>
 
               <Box
@@ -302,7 +304,7 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
               </Box>
 
               <Typography color="text.secondary" sx={{ mt: 0.9, fontSize: '0.78rem' }}>
-                Enabled: {enabledCount} / {MODEL_OPTIONS.length}
+                {t('settingsProject.modelVisibility.enabledCount', { enabled: enabledCount, total: MODEL_OPTIONS.length })}
               </Typography>
             </Box>
           </Stack>
@@ -315,7 +317,7 @@ export const ProjectSettingsForm: React.FC<ProjectSettingsFormProps> = ({
               startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <Save size={16} />}
               sx={{ minWidth: 160, fontWeight: 700 }}
             >
-              {saving ? 'Saving...' : 'Save settings'}
+              {saving ? t('settingsProject.saving') : t('settingsProject.saveButton')}
             </Button>
           </Box>
         </Box>

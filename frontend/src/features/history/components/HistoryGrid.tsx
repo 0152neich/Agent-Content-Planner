@@ -35,7 +35,7 @@ const getRunTitle = (run: RunItem): string => {
   if (typeof content === 'string' && content.trim().length > 0) {
     return content.trim().slice(0, 120);
   }
-  return `Run ${run.id.slice(0, 8)}`;
+  return run.id.slice(0, 8);
 };
 
 const formatDate = (rawValue: string | null): string => {
@@ -67,7 +67,7 @@ export const HistoryGrid: React.FC = () => {
       const projects = await getProjectsApi(accessToken);
       if (!projects.length) {
         setRuns([]);
-        setProjectName('Project');
+        setProjectName(t('history.defaultProject'));
         return;
       }
 
@@ -81,11 +81,11 @@ export const HistoryGrid: React.FC = () => {
       const historyRuns = await getProjectHistoryApi(accessToken, activeProject.id);
       setRuns(historyRuns);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load history.');
+      setError(err instanceof Error ? err.message : t('history.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, t]);
 
   useEffect(() => {
     void loadHistory();
@@ -134,7 +134,7 @@ export const HistoryGrid: React.FC = () => {
         component={Paper}
         sx={{ border: '1px solid', borderColor: 'divider', backgroundImage: 'none', borderRadius: 2 }}
       >
-        <Table sx={{ minWidth: 650 }} aria-label="history table">
+        <Table sx={{ minWidth: 650 }} aria-label={t('layout.historyTableAria')}>
           <TableHead
             sx={(theme) => ({
               bgcolor: theme.palette.mode === 'dark' ? 'rgba(63, 191, 248, 0.08)' : 'rgba(15, 42, 93, 0.06)',
@@ -158,7 +158,7 @@ export const HistoryGrid: React.FC = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1 }}>
                     <CircularProgress size={18} />
                     <Typography variant="body2" color="text.secondary">
-                      Loading history...
+                      {t('history.loading')}
                     </Typography>
                   </Box>
                 </TableCell>
@@ -167,7 +167,7 @@ export const HistoryGrid: React.FC = () => {
               <TableRow>
                 <TableCell colSpan={4}>
                   <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-                    No history available for this project yet.
+                    {t('history.empty')}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -233,7 +233,7 @@ export const HistoryGrid: React.FC = () => {
                           setActiveProjectId(runDetail.project_id);
                           navigate({ to: '/workspace' });
                         } catch (err) {
-                          setError(err instanceof Error ? err.message : 'Failed to open run detail.');
+                          setError(err instanceof Error ? err.message : t('history.errors.openFailed'));
                         }
                       }}
                     >

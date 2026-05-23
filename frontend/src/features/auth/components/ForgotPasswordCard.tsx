@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Paper, TextField, Button, Typography, Link, Alert, useTheme } from '@mui/material';
 import { ShieldCheck } from 'lucide-react';
 import { Link as RouterLink, useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { forgotPasswordSendOtpApi, forgotPasswordVerifyOtpApi } from '../api/authApi';
 
 const OTP_LENGTH = 6;
@@ -10,6 +11,7 @@ const RESET_SESSION_KEY = 'password_reset_verified_email';
 const RESET_TOKEN_SESSION_KEY = 'password_reset_token';
 
 export const ForgotPasswordCard: React.FC = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [step, setStep] = useState<1 | 2>(1);
@@ -29,9 +31,9 @@ export const ForgotPasswordCard: React.FC = () => {
 
   const otpHelperText = useMemo(() => {
     if (step !== 2) return '';
-    if (otp.length === 0) return `Enter ${OTP_LENGTH}-digit OTP sent to your email`;
-    return otp.length < OTP_LENGTH ? `OTP must have ${OTP_LENGTH} digits` : '';
-  }, [otp.length, step]);
+    if (otp.length === 0) return t('authExtended.forgot.otpHelper', { length: OTP_LENGTH });
+    return otp.length < OTP_LENGTH ? t('authExtended.forgot.otpDigits', { length: OTP_LENGTH }) : '';
+  }, [otp.length, step, t]);
 
   const handleSendOtp = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -39,7 +41,7 @@ export const ForgotPasswordCard: React.FC = () => {
     setNotice('');
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      setError('Email is required.');
+      setError(t('authExtended.forgot.emailRequired'));
       return;
     }
 
@@ -50,9 +52,9 @@ export const ForgotPasswordCard: React.FC = () => {
       setStep(2);
       setResendSeconds(OTP_RESEND_SECONDS);
       const expiresInMinutes = Math.max(Math.floor((result.expires_in ?? 0) / 60), 1);
-      setNotice(`OTP has been sent. It will expire in about ${expiresInMinutes} minutes.`);
+      setNotice(t('authExtended.forgot.otpSent', { minutes: expiresInMinutes }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send OTP.');
+      setError(err instanceof Error ? err.message : t('authExtended.forgot.sendFailed'));
     } finally {
       setLoading(false);
     }
@@ -63,7 +65,7 @@ export const ForgotPasswordCard: React.FC = () => {
     setError('');
 
     if (otp.length !== OTP_LENGTH) {
-      setError(`OTP must have exactly ${OTP_LENGTH} digits.`);
+      setError(t('authExtended.forgot.otpExact', { length: OTP_LENGTH }));
       return;
     }
 
@@ -74,7 +76,7 @@ export const ForgotPasswordCard: React.FC = () => {
       sessionStorage.setItem(RESET_TOKEN_SESSION_KEY, verifyResult.reset_token);
       navigate({ to: '/reset-password' });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'OTP verification failed.');
+      setError(err instanceof Error ? err.message : t('authExtended.forgot.verifyFailed'));
     } finally {
       setLoading(false);
     }
@@ -124,10 +126,10 @@ export const ForgotPasswordCard: React.FC = () => {
             mb: 1,
           }}
         >
-          Recover Your Account
+          {t('authExtended.forgot.title')}
         </Typography>
         <Typography sx={{ color: isDark ? '#c9d9ec' : '#1e293b', textAlign: 'center', fontSize: { xs: '1.05rem', md: '1.15rem' }, mb: 2.8 }}>
-          Verify your identity and reset your password
+          {t('authExtended.forgot.subtitle')}
         </Typography>
 
         <Box sx={{ width: '100%', maxWidth: 480, display: 'flex', gap: 0.8, mb: 2.2 }}>
@@ -151,16 +153,16 @@ export const ForgotPasswordCard: React.FC = () => {
           {step === 1 ? (
             <Box component="form" onSubmit={handleSendOtp} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Typography sx={{ color: isDark ? '#9fb5d1' : '#334155', fontSize: '1.05rem' }}>
-                Step 1: Enter your account email to receive OTP.
+                {t('authExtended.forgot.step1')}
               </Typography>
 
               <Box>
                 <Typography variant="body1" sx={{ mb: 0.8, fontWeight: 700 }}>
-                  Email Address
+                  {t('auth.emailLabel')}
                 </Typography>
                 <TextField
                   fullWidth
-                  placeholder="name@company.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   type="email"
                   required
                   value={email}
@@ -187,24 +189,24 @@ export const ForgotPasswordCard: React.FC = () => {
                 }}
                 disabled={loading}
               >
-                {loading ? 'Sending OTP...' : 'Send OTP'}
+                {loading ? t('authExtended.forgot.sending') : t('authExtended.forgot.sendButton')}
               </Button>
             </Box>
           ) : (
             <Box component="form" onSubmit={handleVerifyOtp} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Typography sx={{ color: isDark ? '#9fb5d1' : '#334155', fontSize: '1.05rem' }}>
-                Step 2: Enter OTP sent to <strong>{email}</strong>.
+                {t('authExtended.forgot.step2Prefix')} <strong>{email}</strong>.
               </Typography>
 
               {notice && <Alert severity="info">{notice}</Alert>}
 
               <Box>
                 <Typography variant="body1" sx={{ mb: 0.8, fontWeight: 700 }}>
-                  OTP Code
+                  {t('authExtended.forgot.otpCode')}
                 </Typography>
                 <TextField
                   fullWidth
-                  placeholder="123456"
+                  placeholder={t('authExtended.forgot.otpPlaceholder')}
                   inputProps={{ maxLength: OTP_LENGTH, inputMode: 'numeric', pattern: '[0-9]*' }}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
@@ -231,12 +233,12 @@ export const ForgotPasswordCard: React.FC = () => {
                 }}
                 disabled={loading}
               >
-                {loading ? 'Verifying...' : 'Verify OTP'}
+                {loading ? t('authExtended.forgot.verifying') : t('authExtended.forgot.verifyButton')}
               </Button>
 
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
                 <Button variant="text" onClick={() => setStep(1)} sx={{ textTransform: 'none', px: 0, fontWeight: 700 }}>
-                  Change email
+                  {t('authExtended.forgot.changeEmail')}
                 </Button>
                 <Button
                   variant="text"
@@ -248,9 +250,9 @@ export const ForgotPasswordCard: React.FC = () => {
                       const result = await forgotPasswordSendOtpApi(email);
                       setResendSeconds(OTP_RESEND_SECONDS);
                       const expiresInMinutes = Math.max(Math.floor((result.expires_in ?? 0) / 60), 1);
-                      setNotice(`OTP has been resent. It will expire in about ${expiresInMinutes} minutes.`);
+                      setNotice(t('authExtended.forgot.otpResent', { minutes: expiresInMinutes }));
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Failed to resend OTP.');
+                      setError(err instanceof Error ? err.message : t('authExtended.forgot.resendFailed'));
                     } finally {
                       setLoading(false);
                     }
@@ -258,7 +260,9 @@ export const ForgotPasswordCard: React.FC = () => {
                   disabled={resendSeconds > 0}
                   sx={{ textTransform: 'none', px: 0, fontWeight: 700 }}
                 >
-                  {resendSeconds > 0 ? `Resend in ${resendSeconds}s` : 'Resend OTP'}
+                  {resendSeconds > 0
+                    ? t('authExtended.forgot.resendIn', { seconds: resendSeconds })
+                    : t('authExtended.forgot.resendButton')}
                 </Button>
               </Box>
             </Box>
@@ -266,13 +270,13 @@ export const ForgotPasswordCard: React.FC = () => {
         </Paper>
 
         <Typography sx={{ mt: 2.3, color: isDark ? '#d4deed' : '#1f2937', textAlign: 'center', fontSize: '1.05rem' }}>
-          Remember your password?{' '}
+          {t('authExtended.forgot.rememberPassword')}{' '}
           <Link
             component={RouterLink}
             to="/login"
             sx={{ color: isDark ? '#7dd3fc' : '#256d95', textDecoration: 'none', fontWeight: 700, '&:hover': { textDecoration: 'underline' } }}
           >
-            Sign In
+            {t('auth.signIn')}
           </Link>
         </Typography>
       </Box>

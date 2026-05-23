@@ -16,6 +16,7 @@ import GoogleIcon from '@mui/icons-material/Google';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate, Link as RouterLink } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import brandLogo from '@/assets/app-logos/brand-logo.png';
 import { loginApi, meApi, startGoogleLogin } from '../api/authApi';
 import {
@@ -27,6 +28,7 @@ import {
 } from '../authStorage';
 
 export const LoginCard: React.FC = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const initialRememberedIdentifier = getRememberedIdentifier();
@@ -59,7 +61,7 @@ export const LoginCard: React.FC = () => {
     setError(null);
     const normalizedIdentifier = identifier.trim();
     if (!normalizedIdentifier) {
-      setError('Email or username is required.');
+      setError(t('authExtended.login.identifierRequired'));
       return;
     }
     setLoading(true);
@@ -76,7 +78,7 @@ export const LoginCard: React.FC = () => {
       navigate({ to: '/welcome' });
     } catch (err) {
       clearAccessToken();
-      setError(err instanceof Error ? err.message : 'Login failed.');
+      setError(err instanceof Error ? err.message : t('authExtended.login.failed'));
     } finally {
       setLoading(false);
     }
@@ -124,7 +126,7 @@ export const LoginCard: React.FC = () => {
               <Box
                 component="img"
                 src={brandLogo}
-                alt="AI Content Planner logo"
+                alt={t('authExtended.brandLogoAlt')}
                 sx={{ width: 56, height: 56, objectFit: 'contain' }}
               />
             </Box>
@@ -140,17 +142,17 @@ export const LoginCard: React.FC = () => {
               mb: 2.2,
             }}
           >
-            Welcome Back
+            {t('auth.welcome')}
           </Typography>
 
           <Box component="form" onSubmit={handleLogin} sx={{ display: 'flex', flexDirection: 'column', gap: 1.9 }}>
             <Box>
               <Typography sx={{ mb: 0.8, color: isDark ? '#dbe7f8' : '#0f172a', fontWeight: 700, fontSize: '1.05rem' }}>
-                Email or Username
+                {t('authExtended.login.identifierLabel')}
               </Typography>
               <TextField
                 fullWidth
-                placeholder="name@company.com or username"
+                placeholder={t('authExtended.login.identifierPlaceholder')}
                 type="text"
                 required
                 value={identifier}
@@ -162,7 +164,7 @@ export const LoginCard: React.FC = () => {
             <Box>
               <Box sx={{ mb: 0.8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography sx={{ color: isDark ? '#dbe7f8' : '#0f172a', fontWeight: 700, fontSize: '1.05rem' }}>
-                  Password
+                  {t('auth.passwordLabel')}
                 </Typography>
                 <Link
                   component={RouterLink}
@@ -174,7 +176,7 @@ export const LoginCard: React.FC = () => {
                     '&:hover': { textDecoration: 'underline' },
                   }}
                 >
-                  Forgot password?
+                  {t('auth.forgotPassword')}
                 </Link>
               </Box>
               <TextField
@@ -190,7 +192,7 @@ export const LoginCard: React.FC = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        aria-label={showPassword ? t('authExtended.password.hide') : t('authExtended.password.show')}
                         onClick={togglePasswordVisibility}
                         onMouseDown={(event) => event.preventDefault()}
                         edge="end"
@@ -213,7 +215,7 @@ export const LoginCard: React.FC = () => {
               }
               label={
                 <Typography sx={{ fontSize: '0.92rem', color: isDark ? '#9fb5d1' : '#334155', fontWeight: 600 }}>
-                  Remember account
+                  {t('authExtended.login.rememberAccount')}
                 </Typography>
               }
               sx={{ ml: 0, mr: 0 }}
@@ -232,7 +234,7 @@ export const LoginCard: React.FC = () => {
                 borderRadius: 1.2,
               }}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
 
             {error && (
@@ -244,7 +246,7 @@ export const LoginCard: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', color: isDark ? '#8ea5c2' : '#475569', pt: 1.1 }}>
               <Box sx={{ flex: 1, height: 1, bgcolor: isDark ? '#2b3a51' : '#d6deea' }} />
               <Typography sx={{ px: 1.7, fontSize: '0.9rem', fontWeight: 500 }}>
-                OR CONTINUE WITH
+                {t('auth.orContinue')}
               </Typography>
               <Box sx={{ flex: 1, height: 1, bgcolor: isDark ? '#2b3a51' : '#d6deea' }} />
             </Box>
@@ -264,7 +266,7 @@ export const LoginCard: React.FC = () => {
                 bgcolor: isDark ? '#101b2c' : '#fbfdff',
               }}
             >
-              Login with Google
+              {t('auth.googleLogin')}
             </Button>
           </Box>
         </Box>
@@ -279,7 +281,7 @@ export const LoginCard: React.FC = () => {
           }}
         >
           <Typography sx={{ color: isDark ? '#d4deed' : '#1f2937', fontSize: '1rem' }}>
-            Don&apos;t have an account?{' '}
+            {t('auth.noAccount')}{' '}
             <Link
               component={RouterLink}
               to="/register"
@@ -290,7 +292,7 @@ export const LoginCard: React.FC = () => {
                 '&:hover': { textDecoration: 'underline' },
               }}
             >
-              Sign Up
+              {t('authExtended.login.signUp')}
             </Link>
           </Typography>
         </Box>

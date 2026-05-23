@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Dialog, IconButton, Typography } from '@mui/material';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ProfileForm } from './ProfileForm';
 
 type ProfileDialogProps = {
@@ -8,8 +9,11 @@ type ProfileDialogProps = {
   onClose: () => void;
 };
 
-export const ProfileDialog: React.FC<ProfileDialogProps> = ({ open, onClose }) => (
-  <Dialog
+export const ProfileDialog: React.FC<ProfileDialogProps> = ({ open, onClose }) => {
+  const { t } = useTranslation();
+
+  return (
+    <Dialog
     open={open}
     onClose={onClose}
     scroll="paper"
@@ -36,8 +40,8 @@ export const ProfileDialog: React.FC<ProfileDialogProps> = ({ open, onClose }) =
         justifyContent: 'space-between',
       }}
     >
-      <Typography sx={{ fontWeight: 700 }}>Edit profile</Typography>
-      <IconButton onClick={onClose} size="small" aria-label="Close profile dialog">
+      <Typography sx={{ fontWeight: 700 }}>{t('profile.dialog.title')}</Typography>
+      <IconButton onClick={onClose} size="small" aria-label={t('profile.dialog.closeAria')}>
         <X size={18} />
       </IconButton>
     </Box>
@@ -52,4 +56,5 @@ export const ProfileDialog: React.FC<ProfileDialogProps> = ({ open, onClose }) =
       <ProfileForm embedded hideHeader onSaved={onClose} />
     </Box>
   </Dialog>
-);
+  );
+};

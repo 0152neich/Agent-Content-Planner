@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { Link2, Link2Off, Save, Upload } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { useSnackbar } from '~components/AppLayout';
 import { ensureAuthenticatedAccessToken, meApi } from '@/features/auth/api/authApi';
 import { updateUserApi, uploadUserAvatarApi } from '@/features/users/api/userApi';
@@ -64,6 +65,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
   onSaved,
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { showSnackbar } = useSnackbar();
   const [form, setForm] = useState<ProfileFormState>(INITIAL_FORM);
   const [userId, setUserId] = useState<string>('');
@@ -110,7 +112,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
         setFacebookConnection(facebook);
       } catch (err) {
         if (!active) return;
-        setError(err instanceof Error ? err.message : 'Failed to load profile.');
+        setError(err instanceof Error ? err.message : t('profile.errors.loadFailed'));
       } finally {
         if (active) setLoading(false);
       }
@@ -125,7 +127,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     if (query.get('linkedin') === 'connected') {
-      showSnackbar('LinkedIn account connected.', 'success');
+      showSnackbar(t('profile.linkedin.connected'), 'success');
       query.delete('linkedin');
       const nextQuery = query.toString();
       const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
@@ -143,7 +145,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     }
     const linkedinError = query.get('linkedin_error');
     if (linkedinError) {
-      showSnackbar('LinkedIn connection failed. Please try again.', 'error');
+      showSnackbar(t('profile.linkedin.connectFailed'), 'error');
       query.delete('linkedin_error');
       const nextQuery = query.toString();
       const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
@@ -151,7 +153,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     }
 
     if (query.get('facebook') === 'connected') {
-      showSnackbar('Facebook account connected.', 'success');
+      showSnackbar(t('profile.facebook.connected'), 'success');
       query.delete('facebook');
       const nextQuery = query.toString();
       const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
@@ -169,7 +171,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     }
     const facebookError = query.get('facebook_error');
     if (facebookError) {
-      showSnackbar('Facebook connection failed. Please try again.', 'error');
+      showSnackbar(t('profile.facebook.connectFailed'), 'error');
       query.delete('facebook_error');
       const nextQuery = query.toString();
       const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
@@ -191,13 +193,13 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setError('Please choose a valid image file.');
+      setError(t('profile.errors.invalidImage'));
       event.target.value = '';
       return;
     }
 
     if (file.size > MAX_AVATAR_SIZE_BYTES) {
-      setError('Avatar file must be smaller than 5MB.');
+      setError(t('profile.errors.avatarTooLarge'));
       event.target.value = '';
       return;
     }
@@ -210,7 +212,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     }
 
     if (!userId) {
-      setError('Invalid profile context. Please reload and try again.');
+      setError(t('profile.errors.invalidContext'));
       event.target.value = '';
       return;
     }
@@ -223,9 +225,9 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
         ...prev,
         avatar_url: updated.avatar_url || '',
       }));
-      showSnackbar('Avatar updated successfully.', 'success');
+      showSnackbar(t('profile.avatar.updated'), 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload avatar.');
+      setError(err instanceof Error ? err.message : t('profile.errors.avatarUploadFailed'));
     } finally {
       setUploadingAvatar(false);
       event.target.value = '';
@@ -242,7 +244,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     const avatarUrl = form.avatar_url.trim();
 
     if (!userName) {
-      setError('Username is required.');
+      setError(t('profile.errors.usernameRequired'));
       return;
     }
 
@@ -253,7 +255,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
     }
 
     if (!userId) {
-      setError('Invalid profile context. Please reload and try again.');
+      setError(t('profile.errors.invalidContext'));
       return;
     }
 
@@ -275,10 +277,10 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
         phone: updated.phone || '',
         avatar_url: updated.avatar_url || '',
       }));
-      showSnackbar('Profile updated successfully.', 'success');
+      showSnackbar(t('profile.updated'), 'success');
       onSaved?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile.');
+      setError(err instanceof Error ? err.message : t('profile.errors.updateFailed'));
     } finally {
       setSaving(false);
     }
@@ -296,11 +298,11 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
       const returnTo = `${window.location.pathname}${window.location.search}`;
       const response = await startLinkedInConnectApi(token, returnTo);
       if (!response.authorize_url) {
-        throw new Error('LinkedIn authorize URL is missing.');
+        throw new Error(t('profile.linkedin.authUrlMissing'));
       }
       window.location.href = response.authorize_url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start LinkedIn connection.');
+      setError(err instanceof Error ? err.message : t('profile.linkedin.startFailed'));
       setConnectingLinkedIn(false);
     }
   };
@@ -326,9 +328,9 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               expires_at: null,
             },
       );
-      showSnackbar('LinkedIn disconnected.', 'info');
+      showSnackbar(t('profile.linkedin.disconnected'), 'info');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to disconnect LinkedIn.');
+      setError(err instanceof Error ? err.message : t('profile.linkedin.disconnectFailed'));
     } finally {
       setDisconnectingLinkedIn(false);
     }
@@ -346,11 +348,11 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
       const returnTo = `${window.location.pathname}${window.location.search}`;
       const response = await startFacebookConnectApi(token, returnTo);
       if (!response.authorize_url) {
-        throw new Error('Facebook authorize URL is missing.');
+        throw new Error(t('profile.facebook.authUrlMissing'));
       }
       window.location.href = response.authorize_url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start Facebook connection.');
+      setError(err instanceof Error ? err.message : t('profile.facebook.startFailed'));
       setConnectingFacebook(false);
     }
   };
@@ -376,9 +378,9 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               expires_at: null,
             },
       );
-      showSnackbar('Facebook disconnected.', 'info');
+      showSnackbar(t('profile.facebook.disconnected'), 'info');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to disconnect Facebook.');
+      setError(err instanceof Error ? err.message : t('profile.facebook.disconnectFailed'));
     } finally {
       setDisconnectingFacebook(false);
     }
@@ -390,10 +392,10 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
         <>
           <Box sx={{ mb: 2 }}>
             <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
-              Profile
+              {t('profile.title')}
             </Typography>
             <Typography color="text.secondary">
-              Update your account details.
+              {t('profile.subtitle')}
             </Typography>
           </Box>
           <Divider sx={{ mb: 2.5 }} />
@@ -403,7 +405,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
       {loading ? (
         <Box sx={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <CircularProgress size={18} />
-          <Typography color="text.secondary">Loading profile...</Typography>
+          <Typography color="text.secondary">{t('profile.loading')}</Typography>
         </Box>
       ) : (
         <Box component="form" onSubmit={handleSubmit}>
@@ -423,7 +425,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
           >
             <Avatar
               src={form.avatar_url || undefined}
-              alt={form.full_name || form.user_name || 'User avatar'}
+              alt={form.full_name || form.user_name || t('profile.avatar.alt')}
               sx={{
                 width: 104,
                 height: 104,
@@ -447,10 +449,10 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               onClick={() => avatarFileInputRef.current?.click()}
               sx={{ minWidth: 220, fontWeight: 600 }}
             >
-              {uploadingAvatar ? 'Uploading...' : 'Choose avatar'}
+              {uploadingAvatar ? t('profile.avatar.uploading') : t('profile.avatar.choose')}
             </Button>
             <Typography variant="caption" color="text.secondary">
-              JPG, PNG, WEBP, GIF - max 5MB
+              {t('profile.avatar.hint')}
             </Typography>
             <input
               ref={avatarFileInputRef}
@@ -465,7 +467,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Username"
+                label={t('profile.fields.username')}
                 value={form.user_name}
                 onChange={(event) => setField('user_name', event.target.value)}
                 required
@@ -474,11 +476,11 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Email"
+                label={t('profile.fields.email')}
                 type="email"
                 value={form.email}
                 disabled
-                helperText="Email cannot be changed."
+                helperText={t('profile.fields.emailReadOnly')}
                 sx={{
                   '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#6B7280' },
                 }}
@@ -487,7 +489,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Full name"
+                label={t('profile.fields.fullName')}
                 value={form.full_name}
                 onChange={(event) => setField('full_name', event.target.value)}
               />
@@ -495,7 +497,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Phone"
+                label={t('profile.fields.phone')}
                 value={form.phone}
                 onChange={(event) => setField('phone', event.target.value)}
               />
@@ -516,12 +518,12 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                   spacing={1}
                 >
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700 }}>LinkedIn Connection</Typography>
+                    <Typography sx={{ fontWeight: 700 }}>{t('profile.linkedin.title')}</Typography>
                     <Stack direction="row" spacing={0.8} alignItems="center" sx={{ mt: 0.55 }}>
                       <Chip
                         size="small"
                         color={linkedinConnection?.connected ? 'success' : 'default'}
-                        label={linkedinConnection?.connected ? 'Connected' : 'Not connected'}
+                        label={linkedinConnection?.connected ? t('profile.connected') : t('profile.notConnected')}
                       />
                       {linkedinConnection?.display_name ? (
                         <Typography variant="body2" color="text.secondary">
@@ -530,17 +532,17 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                       ) : null}
                     </Stack>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
-                      Connect your own LinkedIn profile to publish posts from Workspace.
+                      {t('profile.linkedin.description')}
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={1}>
                     <Tooltip
                       title={
                         connectingLinkedIn
-                          ? 'Connecting...'
+                          ? t('profile.connecting')
                           : linkedinConnection?.connected
-                            ? 'Reconnect LinkedIn'
-                            : 'Connect LinkedIn'
+                            ? t('profile.linkedin.reconnect')
+                            : t('profile.linkedin.connect')
                       }
                       arrow
                     >
@@ -553,8 +555,8 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                           }}
                           aria-label={
                             linkedinConnection?.connected
-                              ? 'Reconnect LinkedIn'
-                              : 'Connect LinkedIn'
+                              ? t('profile.linkedin.reconnect')
+                              : t('profile.linkedin.connect')
                           }
                           sx={{
                             width: 38,
@@ -579,7 +581,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title={disconnectingLinkedIn ? 'Disconnecting...' : 'Disconnect LinkedIn'} arrow>
+                    <Tooltip title={disconnectingLinkedIn ? t('profile.disconnecting') : t('profile.linkedin.disconnect')} arrow>
                       <span>
                         <IconButton
                           type="button"
@@ -587,7 +589,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                           onClick={() => {
                             void handleDisconnectLinkedIn();
                           }}
-                          aria-label="Disconnect LinkedIn"
+                          aria-label={t('profile.linkedin.disconnect')}
                           sx={{
                             width: 38,
                             height: 38,
@@ -624,12 +626,12 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                   spacing={1}
                 >
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700 }}>Facebook Connection</Typography>
+                    <Typography sx={{ fontWeight: 700 }}>{t('profile.facebook.title')}</Typography>
                     <Stack direction="row" spacing={0.8} alignItems="center" sx={{ mt: 0.55 }}>
                       <Chip
                         size="small"
                         color={facebookConnection?.connected ? 'success' : 'default'}
-                        label={facebookConnection?.connected ? 'Connected' : 'Not connected'}
+                        label={facebookConnection?.connected ? t('profile.connected') : t('profile.notConnected')}
                       />
                       {facebookConnection?.display_name ? (
                         <Typography variant="body2" color="text.secondary">
@@ -638,17 +640,17 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                       ) : null}
                     </Stack>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.55 }}>
-                      Connect your Facebook account to publish to managed pages from Workspace.
+                      {t('profile.facebook.description')}
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={1}>
                     <Tooltip
                       title={
                         connectingFacebook
-                          ? 'Connecting...'
+                          ? t('profile.connecting')
                           : facebookConnection?.connected
-                            ? 'Reconnect Facebook'
-                            : 'Connect Facebook'
+                            ? t('profile.facebook.reconnect')
+                            : t('profile.facebook.connect')
                       }
                       arrow
                     >
@@ -661,8 +663,8 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                           }}
                           aria-label={
                             facebookConnection?.connected
-                              ? 'Reconnect Facebook'
-                              : 'Connect Facebook'
+                              ? t('profile.facebook.reconnect')
+                              : t('profile.facebook.connect')
                           }
                           sx={{
                             width: 38,
@@ -687,7 +689,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title={disconnectingFacebook ? 'Disconnecting...' : 'Disconnect Facebook'} arrow>
+                    <Tooltip title={disconnectingFacebook ? t('profile.disconnecting') : t('profile.facebook.disconnect')} arrow>
                       <span>
                         <IconButton
                           type="button"
@@ -695,7 +697,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
                           onClick={() => {
                             void handleDisconnectFacebook();
                           }}
-                          aria-label="Disconnect Facebook"
+                          aria-label={t('profile.facebook.disconnect')}
                           sx={{
                             width: 38,
                             height: 38,
@@ -726,7 +728,7 @@ export const ProfileForm: React.FC<ProfileFormProps> = ({
               disabled={saving || uploadingAvatar}
               sx={{ minWidth: 150, fontWeight: 700 }}
             >
-              {saving ? 'Saving...' : 'Save changes'}
+              {saving ? t('profile.saving') : t('common.save')}
             </Button>
           </Box>
         </Box>

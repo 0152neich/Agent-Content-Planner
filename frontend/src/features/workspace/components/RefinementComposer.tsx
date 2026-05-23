@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { Send, X } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
+import { useTranslation } from 'react-i18next';
 
 type ModelOption = {
   value: string;
@@ -40,6 +41,7 @@ export const RefinementComposer: React.FC<RefinementComposerProps> = ({
   onCancel,
 }) => {
   const theme = useTheme();
+  const { t } = useTranslation();
   const isDark = theme.palette.mode === 'dark';
 
   const handleKeyDown = useCallback(
@@ -75,7 +77,7 @@ export const RefinementComposer: React.FC<RefinementComposerProps> = ({
         maxRows={4}
         fullWidth
         variant="standard"
-        placeholder="Ask for a targeted refinement (tone, length, format, language...)"
+        placeholder={t('workspacePage.refinement.placeholder')}
         InputProps={{ disableUnderline: true }}
         sx={{
           '& .MuiInputBase-root': {
@@ -174,7 +176,7 @@ export const RefinementComposer: React.FC<RefinementComposerProps> = ({
             variant="outlined"
             color="inherit"
             onClick={onCancel}
-            aria-label="Cancel refinement"
+            aria-label={t('workspacePage.refinement.cancelAria')}
             sx={{
               minWidth: 34,
               width: 34,

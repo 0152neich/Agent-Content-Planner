@@ -28,6 +28,7 @@ import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import ManageSearchRoundedIcon from '@mui/icons-material/ManageSearchRounded';
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { MiniTaskbar } from '@/features/workspace/components/MiniTaskbar';
 import { ProfileDialog } from '@/features/profile';
 import { ProjectSettingsDialog } from '@/features/settings';
@@ -86,12 +87,12 @@ const toJobTitle = (job: AutopostJobItem): string => {
     /^manual content \((linkedin|facebook)\)\s*(\[[a-f0-9]{8,}\])?\s*/i,
     '',
   ).trim();
-  return cleaned || keyword || 'Auto-post draft';
+  return cleaned || keyword || '';
 };
 
-const formatScheduleSummary = (dateText: string, timeText: string): string => {
+const formatScheduleSummary = (dateText: string, timeText: string, fallback: string): string => {
   const parsed = new Date(`${dateText}T${timeText}`);
-  if (Number.isNaN(parsed.getTime())) return 'Scheduled -> Invalid date';
+  if (Number.isNaN(parsed.getTime())) return fallback;
   return `Scheduled -> ${parsed.toLocaleString()}`;
 };
 
@@ -109,28 +110,24 @@ const includesJobFilter = (status: AutopostJobItem['status'], platform: string, 
   return platform.toLowerCase() === filter;
 };
 
-const FEED_FILTER_OPTIONS: Array<{ value: AutoPostFeedFilter; label: string }> = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'scheduled', label: 'Đã lên lịch' },
-  { value: 'unscheduled', label: 'Chưa lên lịch' },
-];
-
-const resolveConnectPromptText = (prompt: AutoPostConnectPrompt): string => {
+const resolveConnectPromptText = (
+  prompt: AutoPostConnectPrompt,
+  fallback: { facebook: string; linkedin: string; generic: string },
+): string => {
   if (prompt.message.trim()) {
     return prompt.message;
   }
   if (prompt.platform === 'facebook') {
-    return 'Facebook account is not connected. Please connect to continue.';
+    return fallback.facebook;
   }
   if (prompt.platform === 'linkedin') {
-    return 'LinkedIn account is not connected. Please connect to continue.';
+    return fallback.linkedin;
   }
-  return 'Your social account is not connected. Please connect to continue.';
+  return fallback.generic;
 };
 
 const AutoPostFeature: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [profileDialogOpen, setProfileDialogOpen] = React.useState(false);
   const [projectSettingsOpen, setProjectSettingsOpen] = React.useState(false);
@@ -190,8 +187,21 @@ const AutoPostFeature: React.FC = () => {
   const timeMinForSelectedDate = scheduledDate === minScheduleDate ? minScheduleTime : undefined;
   const dialogTimeMinForSelectedDate =
     dialogScheduledDate === minScheduleDate ? minScheduleTime : undefined;
-  const scheduleSummaryText = formatScheduleSummary(scheduledDate, scheduledTime);
-  const dialogScheduleSummaryText = formatScheduleSummary(dialogScheduledDate, dialogScheduledTime);
+  const scheduleSummaryText = formatScheduleSummary(
+    scheduledDate,
+    scheduledTime,
+    t('autopost.summary.invalidDate'),
+  );
+  const dialogScheduleSummaryText = formatScheduleSummary(
+    dialogScheduledDate,
+    dialogScheduledTime,
+    t('autopost.summary.invalidDate'),
+  );
+  const feedFilterOptions: Array<{ value: AutoPostFeedFilter; label: string }> = [
+    { value: 'all', label: t('autopost.filters.all') },
+    { value: 'linkedin', label: 'LinkedIn' },
+    { value: 'facebook', label: 'Facebook' },
+  ];
   const topFormFieldSx = {
     '& .MuiOutlinedInput-root': {
       height: 48,
@@ -397,7 +407,7 @@ const AutoPostFeature: React.FC = () => {
               lineHeight: 1.08,
             }}
           >
-            Auto-Post
+            {t('autopost.title')}
           </Typography>
           <Typography
             variant="h5"
@@ -409,7 +419,7 @@ const AutoPostFeature: React.FC = () => {
               lineHeight: 1.3,
             }}
           >
-            Generate one post per execution, then publish now or schedule.
+            {t('autopost.subtitle')}
           </Typography>
           {error ? (
             <Alert severity="error" sx={{ mb: 2.5 }}>
@@ -429,15 +439,19 @@ const AutoPostFeature: React.FC = () => {
                       void startSocialConnect(() => setProfileDialogOpen(true));
                     }}
                   >
-                    Connect
+                    {t('autopost.connect.connect')}
                   </Button>
                   <Button size="small" onClick={dismissConnectPrompt}>
-                    Dismiss
+                    {t('autopost.connect.dismiss')}
                   </Button>
                 </Stack>
               )}
             >
-              {resolveConnectPromptText(connectPrompt)}
+              {resolveConnectPromptText(connectPrompt, {
+                facebook: t('autopost.connect.facebookRequired'),
+                linkedin: t('autopost.connect.linkedinRequired'),
+                generic: t('autopost.connect.genericRequired'),
+              })}
             </Alert>
           ) : null}
 
@@ -453,10 +467,10 @@ const AutoPostFeature: React.FC = () => {
           >
             <Stack spacing={2.2}>
               <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
-                KEYWORD
+                {t('autopost.form.keyword')}
               </Typography>
               <TextField
-                placeholder="Enter keyword or topic..."
+                placeholder={t('autopost.form.keywordPlaceholder')}
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 fullWidth
@@ -472,15 +486,13 @@ const AutoPostFeature: React.FC = () => {
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <Box sx={{ flex: 1 }}>
                   <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
-                    PROJECT
+                    {t('autopost.form.project')}
                   </Typography>
                   <FormControl fullWidth sx={topFormFieldSx}>
-                    <InputLabel id="autopost-project-label">Project</InputLabel>
                     <Select
-                      labelId="autopost-project-label"
-                      label="Project"
                       value={scheduleProjectId}
                       onChange={(event) => setScheduleProjectId(String(event.target.value))}
+                      inputProps={{ 'aria-label': t('autopost.form.projectLabel') }}
                     >
                       {projects.map((item) => (
                         <MenuItem key={item.id} value={item.id}>
@@ -492,11 +504,11 @@ const AutoPostFeature: React.FC = () => {
                 </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
-                    PLATFORM
+                    {t('autopost.form.platform')}
                   </Typography>
                   <FormControl fullWidth sx={topFormFieldSx}>
                     <InputLabel id="autopost-platform-label" shrink={false}>
-                      {platform ? '' : 'Platform'}
+                      {platform ? '' : t('autopost.form.platformLabel')}
                     </InputLabel>
                     <Select
                       labelId="autopost-platform-label"
@@ -511,7 +523,7 @@ const AutoPostFeature: React.FC = () => {
                 </Box>
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
                   <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
-                    PUBLISH MODE
+                    {t('autopost.form.publishMode')}
                   </Typography>
                   <ToggleButtonGroup
                     exclusive
@@ -547,8 +559,8 @@ const AutoPostFeature: React.FC = () => {
                       },
                     }}
                   >
-                    <ToggleButton value="now">Publish now</ToggleButton>
-                    <ToggleButton value="schedule">Schedule</ToggleButton>
+                    <ToggleButton value="now">{t('autopost.form.publishNow')}</ToggleButton>
+                    <ToggleButton value="schedule">{t('autopost.form.schedule')}</ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
               </Stack>
@@ -556,7 +568,7 @@ const AutoPostFeature: React.FC = () => {
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                   <Box sx={{ flex: 1 }}>
                     <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
-                      DATE
+                      {t('autopost.form.date')}
                     </Typography>
                     <TextField
                       type="date"
@@ -570,7 +582,7 @@ const AutoPostFeature: React.FC = () => {
                   </Box>
                   <Box sx={{ flex: 1 }}>
                     <Typography sx={{ mb: 0.7, fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.04em', color: '#5b6574' }}>
-                      TIME
+                      {t('autopost.form.time')}
                     </Typography>
                     <TextField
                       type="time"
@@ -600,20 +612,20 @@ const AutoPostFeature: React.FC = () => {
               >
                 <Box sx={{ width: 11, height: 11, borderRadius: '50%', bgcolor: '#66a6e4', flexShrink: 0 }} />
                 <Typography component="span" sx={{ fontWeight: 700 }}>
-                  Summary:
+                  {t('autopost.summary.label')}
                 </Typography>
                 <Typography component="span" sx={{ fontSize: '0.95rem' }}>
                   {publishMode === 'now'
-                    ? 'This post will be published immediately after generation.'
+                    ? t('autopost.summary.publishNow')
                     : scheduleSummaryText}
                 </Typography>
               </Box>
               {platform === 'facebook' ? (
                 <FormControl fullWidth sx={topFormFieldSx}>
-                  <InputLabel id="autopost-page-label">Facebook page</InputLabel>
+                  <InputLabel id="autopost-page-label">{t('autopost.form.facebookPage')}</InputLabel>
                   <Select
                     labelId="autopost-page-label"
-                    label="Facebook page"
+                    label={t('autopost.form.facebookPage')}
                     value={pageId}
                     onChange={(event) => setPageId(String(event.target.value))}
                     disabled={facebookPagesLoading}
@@ -646,7 +658,7 @@ const AutoPostFeature: React.FC = () => {
                     },
                   }}
                 >
-                  {submitting ? 'Submitting...' : 'Execute'}
+                  {submitting ? t('autopost.actions.submitting') : t('autopost.actions.execute')}
                 </Button>
               </Box>
             </Stack>
@@ -655,10 +667,10 @@ const AutoPostFeature: React.FC = () => {
           <Box sx={{ mb: 5 }}>
             <Stack spacing={1.8}>
               <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827' }}>
-                Feed Filter
+                {t('autopost.filters.title')}
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                {FEED_FILTER_OPTIONS.map(({ value, label }) => (
+                {feedFilterOptions.map(({ value, label }) => (
                   <Chip
                     key={value}
                     label={label}
@@ -688,11 +700,11 @@ const AutoPostFeature: React.FC = () => {
           <Box sx={{ mb: 3.5 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827' }}>
-                Current Chat Drafts
+                {t('autopost.drafts.title')}
               </Typography>
               <Chip
                 size="small"
-                label={`${filteredDrafts.length} draft${filteredDrafts.length === 1 ? '' : 's'}`}
+                label={t('autopost.drafts.count', { count: filteredDrafts.length })}
                 sx={{
                   height: 36,
                   borderRadius: 999,
@@ -716,7 +728,7 @@ const AutoPostFeature: React.FC = () => {
                   bgcolor: 'rgba(255,255,255,0.7)',
                 }}
               >
-                <Typography color="text.secondary">No current chat drafts for this filter.</Typography>
+                <Typography color="text.secondary">{t('autopost.drafts.empty')}</Typography>
               </Box>
             ) : (
               <Box
@@ -803,7 +815,7 @@ const AutoPostFeature: React.FC = () => {
                     </Box>
                     <Box sx={{ p: 2.2, pt: 1.6, flex: 1, display: 'flex', flexDirection: 'column' }}>
                       <Typography sx={{ fontSize: '0.82rem', color: '#6b7280', mb: 1.4 }}>
-                        Updated {formatDate(draft.updatedAt)}
+                        {t('autopost.drafts.updated')} {formatDate(draft.updatedAt)}
                       </Typography>
                       <Typography
                         sx={{
@@ -839,7 +851,7 @@ const AutoPostFeature: React.FC = () => {
                           lineHeight: 1.2,
                         }}
                       >
-                        Click to preview and schedule
+                        {t('autopost.drafts.cta')}
                       </Typography>
                       <ArrowForwardIosRoundedIcon sx={{ fontSize: 15, color: '#374151' }} />
                     </Box>
@@ -859,7 +871,7 @@ const AutoPostFeature: React.FC = () => {
             }}
           >
             <Typography variant="h6" sx={{ fontWeight: 700, color: '#111827', mb: 2.1 }}>
-              AutoPost Jobs Timeline
+              {t('autopost.timeline.title')}
             </Typography>
             {loading ? (
               <CircularProgress size={20} />
@@ -880,7 +892,7 @@ const AutoPostFeature: React.FC = () => {
                 }}
               >
                 <ScheduleOutlinedIcon sx={{ fontSize: 60, color: '#7a8595' }} />
-                <Typography sx={{ color: '#4b5563' }}>No auto-post jobs yet.</Typography>
+                <Typography sx={{ color: '#4b5563' }}>{t('autopost.timeline.empty')}</Typography>
               </Box>
             ) : (
               <Stack spacing={1.25}>
@@ -916,12 +928,12 @@ const AutoPostFeature: React.FC = () => {
                         <Chip size="small" label={job.status} color={toBadgeColor(job.status)} />
                         {(job.status === 'FAILED' || job.status === 'NEEDS_RECONNECT') ? (
                           <Button size="small" onClick={() => void retryJob(job.id)}>
-                            Retry
+                            {t('autopost.timeline.retry')}
                           </Button>
                         ) : null}
                         {job.status !== 'PUBLISHED' && job.status !== 'CANCELLED' ? (
                           <Button size="small" color="error" onClick={() => void cancelJob(job.id)}>
-                            Cancel
+                            {t('common.cancel')}
                           </Button>
                         ) : null}
                       </Stack>
@@ -942,10 +954,10 @@ const AutoPostFeature: React.FC = () => {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <MenuItem onClick={handleMenuDelete} sx={{ color: 'error.main' }}>
-          Xóa bài nháp
+          {t('autopost.menu.deleteDraft')}
         </MenuItem>
-        <MenuItem onClick={handleMenuEditContent}>Chỉnh sửa nội dung</MenuItem>
-        <MenuItem onClick={handleMenuSchedule}>Chỉnh sửa thông tin để lên lịch</MenuItem>
+        <MenuItem onClick={handleMenuEditContent}>{t('autopost.menu.editContent')}</MenuItem>
+        <MenuItem onClick={handleMenuSchedule}>{t('autopost.menu.editSchedule')}</MenuItem>
       </Menu>
 
       <Dialog open={previewOpen && Boolean(selectedDraft)} onClose={() => setPreviewOpen(false)} maxWidth="md" fullWidth>
@@ -959,12 +971,12 @@ const AutoPostFeature: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 2, pb: 2 }}>
-          <Button onClick={() => setPreviewOpen(false)}>Close</Button>
+          <Button onClick={() => setPreviewOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="outlined" onClick={handleEditContent}>
-            Chỉnh sửa nội dung
+            {t('autopost.menu.editContent')}
           </Button>
           <Button variant="contained" onClick={handleOpenScheduleFromPreview}>
-            Chỉnh sửa thông tin để lên lịch
+            {t('autopost.menu.editSchedule')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -976,7 +988,7 @@ const AutoPostFeature: React.FC = () => {
         fullWidth
       >
         <DialogTitle sx={{ fontWeight: 700 }}>
-          Schedule Draft {selectedDraft ? `- ${selectedDraft.platform.toUpperCase()}` : ''}
+          {t('autopost.dialog.title')} {selectedDraft ? `- ${selectedDraft.platform.toUpperCase()}` : ''}
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ pt: 0.5 }}>
@@ -997,24 +1009,26 @@ const AutoPostFeature: React.FC = () => {
                         void startSocialConnect(() => setProfileDialogOpen(true));
                       }}
                     >
-                      Connect
+                      {t('autopost.connect.connect')}
                     </Button>
                     <Button size="small" onClick={dismissConnectPrompt}>
-                      Dismiss
+                      {t('autopost.connect.dismiss')}
                     </Button>
                   </Stack>
                 )}
               >
-                {resolveConnectPromptText(connectPrompt)}
+                {resolveConnectPromptText(connectPrompt, {
+                  facebook: t('autopost.connect.facebookRequired'),
+                  linkedin: t('autopost.connect.linkedinRequired'),
+                  generic: t('autopost.connect.genericRequired'),
+                })}
               </Alert>
             ) : null}
             <FormControl fullWidth>
-              <InputLabel id="dialog-project-label">Project</InputLabel>
               <Select
-                labelId="dialog-project-label"
-                label="Project"
                 value={dialogProjectId}
                 onChange={(event) => setDialogProjectId(String(event.target.value))}
+                inputProps={{ 'aria-label': t('autopost.form.projectLabel') }}
               >
                 {projects.map((item) => (
                   <MenuItem key={item.id} value={item.id}>
@@ -1030,13 +1044,13 @@ const AutoPostFeature: React.FC = () => {
                 if (value) setDialogPublishMode(value);
               }}
             >
-              <ToggleButton value="now">Publish now</ToggleButton>
-              <ToggleButton value="schedule">Schedule</ToggleButton>
+              <ToggleButton value="now">{t('autopost.form.publishNow')}</ToggleButton>
+              <ToggleButton value="schedule">{t('autopost.form.schedule')}</ToggleButton>
             </ToggleButtonGroup>
             {dialogPublishMode === 'schedule' ? (
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <TextField
-                  label="Date"
+                  label={t('autopost.form.date')}
                   type="date"
                   fullWidth
                   value={dialogScheduledDate}
@@ -1045,7 +1059,7 @@ const AutoPostFeature: React.FC = () => {
                   InputLabelProps={{ shrink: true }}
                 />
                 <TextField
-                  label="Time"
+                  label={t('autopost.form.time')}
                   type="time"
                   fullWidth
                   value={dialogScheduledTime}
@@ -1059,10 +1073,10 @@ const AutoPostFeature: React.FC = () => {
             ) : null}
             {selectedDraft?.platform === 'facebook' ? (
               <FormControl fullWidth>
-                <InputLabel id="dialog-fb-page-label">Facebook page</InputLabel>
+                <InputLabel id="dialog-fb-page-label">{t('autopost.form.facebookPage')}</InputLabel>
                 <Select
                   labelId="dialog-fb-page-label"
-                  label="Facebook page"
+                  label={t('autopost.form.facebookPage')}
                   value={dialogPageId}
                   onChange={(event) => setDialogPageId(String(event.target.value))}
                   disabled={facebookPagesLoading}
@@ -1087,15 +1101,15 @@ const AutoPostFeature: React.FC = () => {
               }}
             >
               {dialogPublishMode === 'now'
-                ? 'This draft will be published immediately.'
+                ? t('autopost.dialog.publishNow')
                 : dialogScheduleSummaryText}
             </Box>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 2, pb: 2 }}>
-          <Button onClick={() => setScheduleDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setScheduleDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="contained" onClick={() => void handleScheduleFromDraft()} disabled={submitting}>
-            {submitting ? 'Submitting...' : 'Create Schedule'}
+            {submitting ? t('autopost.actions.submitting') : t('autopost.actions.createSchedule')}
           </Button>
         </DialogActions>
       </Dialog>

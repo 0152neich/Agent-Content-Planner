@@ -1,0 +1,430 @@
+{
+  "common": {
+    "appName": "AI Content Planner",
+    "login": "Đăng nhập",
+    "logout": "Đăng xuất",
+    "profile": "Hồ sơ",
+    "settings": "Cài đặt",
+    "rename": "Đổi tên",
+    "delete": "Xóa",
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "expand": "Mở rộng",
+    "collapse": "Thu gọn",
+    "lightMode": "Chế độ sáng",
+    "darkMode": "Chế độ tối",
+    "save": "Lưu thay đổi",
+    "actions": "Thao tác",
+    "switchLanguage": "Ngôn ngữ"
+  },
+  "landing": {
+    "enterprise": "Phiên bản Doanh nghiệp 2026 Chính thức ra mắt",
+    "heroTitle": "Tự động hóa toàn bộ quy trình tạo và phân phối nội dung.",
+    "subHero": "Giải pháp năng suất nội dung đột phá cho doanh nghiệp. Chỉ từ một URL, hệ thống Multi-Agent AI sẽ tự động nghiên cứu, lập chiến lược và tạo nội dung chuyên sâu cho nhiều nền tảng số.",
+    "startTrial": "Trải nghiệm nền tảng",
+    "exploreFlow": "Khám phá quy trình AI",
+    "architectureTitle": "Kiến trúc Multi-Agent thông minh",
+    "architectureSub": "Khác với hệ thống AI một lệnh, nền tảng vận hành theo mô hình pipeline chuyên sâu. Bốn Agent hoạt động độc lập và phối hợp nhịp nhàng như một phòng nội dung marketing chuyên nghiệp.",
+    "footer": "© 2026 AI Content Planner. Hệ thống lập kế hoạch nội dung thông minh hàng đầu."
+  },
+  "features": {
+    "analyzer": {
+      "title": "Analyzer (Phân tích đa nguồn)",
+      "description": "Tự động trích xuất và phân tích nhiều lớp dữ liệu từ URL đầu vào. AI nghiên cứu ngữ cảnh, xác định thông điệp cốt lõi và chân dung khách hàng mục tiêu với độ chính xác cao."
+    },
+    "strategist": {
+      "title": "Strategist (Chuyên gia chiến lược AI)",
+      "description": "Xây dựng chiến lược phân phối nội dung đa kênh chuyên nghiệp. Đề xuất góc nhìn sáng tạo, giọng điệu và định dạng tối ưu dựa trên hành vi thực tế của người dùng ở từng nền tảng."
+    },
+    "copywriter": {
+      "title": "Copywriter (Bút viết thông minh)",
+      "description": "Chuyển hóa chiến lược thành bản nháp sắc bén. Ứng dụng các mô hình ngôn ngữ lớn để tạo bài viết hấp dẫn, thuyết phục và nhất quán với giọng thương hiệu."
+    },
+    "editor": {
+      "title": "Editor (Biên tập viên chuyên nghiệp)",
+      "description": "Rà soát đa lớp từ ngữ nghĩa, ngữ pháp đến cấu trúc bài viết. Đảm bảo nội dung sắc nét, thân thiện SEO và tối ưu chuyển đổi cho từng lần xuất bản."
+    }
+  },
+  "sidebar": {
+    "newChat": "Cuộc trò chuyện mới",
+    "searchPlaceholder": "Tìm kiếm cuộc trò chuyện",
+    "historyTitle": "Cuộc trò chuyện của bạn",
+    "upgrade": "Nâng cấp",
+    "personalize": "Cá nhân hóa"
+  },
+  "taskbar": {
+    "createProject": "Tạo dự án",
+    "switchLanguage": "Chuyển ngôn ngữ ({{lang}})",
+    "projects": "Dự án",
+    "autopost": "Đăng tự động",
+    "accountMenu": "Menu tài khoản",
+    "yourProjects": "Dự án của bạn",
+    "noProjectsYet": "Chưa có dự án",
+    "noUrl": "Chưa có URL",
+    "addNewProject": "Thêm dự án mới"
+  },
+  "workspace": {
+    "title": "Nhập nguồn nội dung",
+    "subtitle": "Nhập URL bài viết hoặc blog cần phân tích để bắt đầu tạo content plan chuyên sâu.",
+    "urlLabel": "URL nội dung",
+    "urlPlaceholder": "https://example.com/bai-viet-can-phan-tich",
+    "notesLabel": "Ghi chú bổ sung (tùy chọn)",
+    "notesPlaceholder": "Ví dụ: giọng văn nghiêm túc, tập trung đối tượng B2B, nhấn mạnh giá trị bền vững...",
+    "generateButton": "Tạo kế hoạch & viết bài",
+    "stepper": {
+      "title": "Hệ thống AI Agent đang xử lý...",
+      "step1": "Analyzer đang trích xuất và hiểu nội dung...",
+      "step2": "Strategist đang xây dựng góc nhìn đa nền tảng...",
+      "step3": "Copywriter đang soạn thảo nội dung...",
+      "step4": "Editor đang rà soát chất lượng..."
+    },
+    "results": {
+      "analysisTab": "Báo cáo phân tích",
+      "coreMessageLabel": "Thông điệp cốt lõi",
+      "targetAudienceLabel": "Khách hàng mục tiêu",
+      "keyTakeawaysLabel": "Điểm rút ra chính",
+      "placeholders": {
+        "coreMessage": "Khai thác trí tuệ nhân tạo (AI) không phải để thay thế con người, mà là công cụ mở khóa sáng tạo và tối ưu hiệu suất trong kỷ nguyên số.",
+        "targetAudience": "Dành cho marketer, content creator và chủ doanh nghiệp muốn ứng dụng AI vào chiến lược nội dung đa kênh.",
+        "takeaway1": "AI Content Planner tự động hóa phần lớn công việc thủ công, từ hiểu bài nguồn đến phân phối nội dung đa nền tảng.",
+        "takeaway2": "Sự kết hợp của 4 Agent (Analyzer, Strategist, Copywriter, Editor) giúp đảm bảo tính chuyên nghiệp và cá nhân hóa.",
+        "takeaway3": "Ứng dụng AI giúp bạn dành nhiều thời gian hơn cho chiến lược và ý tưởng đột phá."
+      },
+      "copyPost": "Sao chép nội dung bài viết",
+      "justNow": "Vừa xong",
+      "comments": "bình luận",
+      "shares": "chia sẻ",
+      "like": "Thích",
+      "comment": "Bình luận",
+      "share": "Chia sẻ",
+      "repost": "Đăng lại",
+      "copied": "Đã sao chép vào clipboard!",
+      "characters": "ký tự",
+      "15mins": "15 phút",
+      "2m": "2 phút",
+      "socialMock": {
+        "linkedin": "Khám phá cách AI Content Planner đang thay đổi hoàn toàn cách chúng ta tạo nội dung! 🚀\n\nThay vì mất hàng giờ đọc, phân tích và viết lại bài cho từng nền tảng, giờ đây tôi chỉ cần dán một URL. Hệ thống tự động phân tích sâu, trích xuất thông điệp cốt lõi và phân phối nội dung đa nền tảng.\n\n💡 Vì sao bạn nên quan tâm?\n- Tối ưu đến 80% thời gian làm việc.\n- Giữ sự nhất quán thông điệp thương hiệu.\n- Kết hợp hoàn hảo 4 Agent chuyên biệt, vận hành như một mini team marketing.\n\nNếu bạn đang áp lực vì phải sản xuất nội dung mỗi ngày, đã đến lúc để AI chia sẻ gánh nặng đó.\n\n#AI #ContentMarketing #MarketingStrategy #Productivity #AIContentPlanner",
+        "facebook": "Đừng vật lộn với việc tạo nội dung mỗi ngày nữa! 💡\n\nAI Content Planner dùng hệ thống Multi-Agent để biến bất kỳ bài viết nào thành bài đăng mạng xã hội hấp dẫn.\n\n✅ Nhanh hơn 80%\n✅ Nhất quán thương hiệu\n✅ Tối ưu đa kênh\n\nThử ngay tại aicontentplanner.com! 🚀"
+      }
+    }
+  },
+  "settings": {
+    "title": "Cấu hình hệ thống",
+    "saveSuccess": "Đã lưu cấu hình hệ thống thành công!",
+    "tabs": {
+      "scraper": "Cấu hình lấy dữ liệu",
+      "ai": "Cấu hình AI (LLMs)"
+    },
+    "scraper": {
+      "title": "Cấu hình thu thập dữ liệu",
+      "providerLabel": "Nhà cung cấp scraping",
+      "apiKeyLabel": "API Key scraping",
+      "apiKeyHelper": "Bắt buộc để Agent Analyzer đọc nội dung website."
+    },
+    "ai": {
+      "title": "Tùy chỉnh mô hình ngôn ngữ",
+      "providerLabel": "Nhà cung cấp AI đang dùng (LLM_PROVIDER)",
+      "openai": "OpenAI (ChatGPT)",
+      "anthropic": "Anthropic (Claude)",
+      "coreOpenAI": "Cấu hình lõi OpenAI",
+      "coreAnthropic": "Cấu hình lõi Anthropic Claude",
+      "coreGemini": "Cấu hình lõi Google Gemini",
+      "modelLabel": "Mô hình",
+      "customModel": "Tùy chỉnh mô hình khác...",
+      "inputModel": "Nhập tên mô hình",
+      "exampleOpenAI": "Ví dụ: o1-preview, o1-mini...",
+      "exampleAnthropic": "Nhập chính xác tên model Claude",
+      "exampleGemini": "Ví dụ: gemini-1.5-flash-8b"
+    },
+    "saving": "Đang lưu cấu hình..."
+  },
+  "history": {
+    "title": "Lịch sử chiến dịch",
+    "subtitle": "Xem lại nội dung được khởi tạo bởi hệ thống AI theo thời gian thực.",
+    "table": {
+      "title": "Tiêu đề gốc",
+      "date": "Ngày tạo",
+      "platforms": "Nền tảng",
+      "actions": "Thao tác",
+      "view": "Xem"
+    },
+    "defaultProject": "Dự án",
+    "loading": "Đang tải lịch sử...",
+    "empty": "Chưa có lịch sử cho dự án này.",
+    "errors": {
+      "loadFailed": "Không thể tải lịch sử.",
+      "openFailed": "Không thể mở chi tiết phiên chạy."
+    },
+    "mock": {
+      "chat1": "Phân tích báo cáo rác thải nhựa",
+      "chat2": "Kế hoạch nội dung chiến dịch ra mắt",
+      "chat3": "Kế hoạch social tháng 10",
+      "history1": "Xu hướng AI thay thế lao động năm 2026",
+      "history2": "Cách xây đội Marketing tối ưu",
+      "history3": "Chiến lược tăng trưởng cho B2B SaaS",
+      "history4": "Tối ưu tỷ lệ chuyển đổi trang chủ"
+    }
+  },
+  "auth": {
+    "welcome": "Chào mừng quay lại",
+    "emailLabel": "Địa chỉ email",
+    "emailPlaceholder": "name@company.com",
+    "passwordLabel": "Mật khẩu",
+    "passwordPlaceholder": "••••••••",
+    "forgotPassword": "Quên mật khẩu?",
+    "rememberMe": "Ghi nhớ thiết bị này",
+    "signIn": "Đăng nhập",
+    "signingIn": "Đang đăng nhập...",
+    "orContinue": "HOẶC TIẾP TỤC VỚI",
+    "googleLogin": "Đăng nhập với Google",
+    "noAccount": "Chưa có tài khoản?",
+    "requestAccess": "Yêu cầu truy cập"
+  },
+  "layout": {
+    "openNavigation": "Mở điều hướng",
+    "historyTableAria": "bảng lịch sử"
+  },
+  "workspacePage": {
+    "logout": {
+      "title": "Đăng xuất",
+      "confirmMessage": "Bạn có chắc muốn đăng xuất khỏi workspace này?"
+    },
+    "refinement": {
+      "placeholder": "Yêu cầu tinh chỉnh cụ thể (giọng điệu, độ dài, định dạng, ngôn ngữ...)",
+      "cancelAria": "Hủy tinh chỉnh"
+    }
+  },
+  "workspaceResults": {
+    "tabs": {
+      "coreAnalysis": "Phân tích cốt lõi",
+      "linkedinPost": "Bài đăng LinkedIn",
+      "facebookPost": "Bài đăng Facebook"
+    }
+  },
+  "autopost": {
+    "title": "Đăng tự động",
+    "subtitle": "Tạo một bài cho mỗi lần chạy, sau đó đăng ngay hoặc lên lịch.",
+    "form": {
+      "keyword": "TỪ KHÓA",
+      "keywordPlaceholder": "Nhập từ khóa hoặc chủ đề...",
+      "project": "DỰ ÁN",
+      "projectLabel": "Dự án",
+      "platform": "NỀN TẢNG",
+      "platformLabel": "Nền tảng",
+      "publishMode": "CHẾ ĐỘ ĐĂNG",
+      "publishNow": "Đăng ngay",
+      "schedule": "Lên lịch",
+      "date": "Ngày",
+      "time": "Giờ",
+      "facebookPage": "Trang Facebook"
+    },
+    "summary": {
+      "label": "Tóm tắt:",
+      "publishNow": "Bài viết sẽ được đăng ngay sau khi tạo.",
+      "invalidDate": "Đã lên lịch -> Ngày không hợp lệ"
+    },
+    "actions": {
+      "execute": "Thực thi",
+      "submitting": "Đang gửi...",
+      "createSchedule": "Tạo lịch"
+    },
+    "filters": {
+      "title": "Bộ lọc feed",
+      "all": "Tất cả",
+      "scheduled": "Đã lên lịch",
+      "unscheduled": "Chưa lên lịch"
+    },
+    "drafts": {
+      "title": "Bản nháp từ chat hiện tại",
+      "count": "{{count}} bản nháp",
+      "empty": "Không có bản nháp phù hợp bộ lọc.",
+      "updated": "Cập nhật",
+      "cta": "Bấm để xem trước và lên lịch"
+    },
+    "timeline": {
+      "title": "Dòng thời gian AutoPost",
+      "empty": "Chưa có job auto-post.",
+      "retry": "Thử lại"
+    },
+    "connect": {
+      "connect": "Kết nối",
+      "dismiss": "Ẩn",
+      "facebookRequired": "Tài khoản Facebook chưa kết nối. Vui lòng kết nối để tiếp tục.",
+      "linkedinRequired": "Tài khoản LinkedIn chưa kết nối. Vui lòng kết nối để tiếp tục.",
+      "genericRequired": "Tài khoản mạng xã hội chưa kết nối. Vui lòng kết nối để tiếp tục."
+    },
+    "menu": {
+      "deleteDraft": "Xóa bản nháp",
+      "editContent": "Chỉnh sửa nội dung",
+      "editSchedule": "Chỉnh sửa thông tin lên lịch"
+    },
+    "dialog": {
+      "title": "Lên lịch bản nháp",
+      "publishNow": "Bản nháp này sẽ được đăng ngay."
+    }
+  },
+  "profile": {
+    "title": "Hồ sơ",
+    "subtitle": "Cập nhật thông tin tài khoản.",
+    "loading": "Đang tải hồ sơ...",
+    "saving": "Đang lưu...",
+    "updated": "Cập nhật hồ sơ thành công.",
+    "connected": "Đã kết nối",
+    "notConnected": "Chưa kết nối",
+    "connecting": "Đang kết nối...",
+    "disconnecting": "Đang ngắt kết nối...",
+    "fields": {
+      "username": "Tên đăng nhập",
+      "email": "Email",
+      "emailReadOnly": "Email không thể thay đổi.",
+      "fullName": "Họ và tên",
+      "phone": "Số điện thoại"
+    },
+    "avatar": {
+      "alt": "Ảnh đại diện người dùng",
+      "choose": "Chọn ảnh đại diện",
+      "uploading": "Đang tải lên...",
+      "updated": "Cập nhật ảnh đại diện thành công.",
+      "hint": "JPG, PNG, WEBP, GIF - tối đa 5MB"
+    },
+    "dialog": {
+      "title": "Chỉnh sửa hồ sơ",
+      "closeAria": "Đóng hộp thoại hồ sơ"
+    },
+    "linkedin": {
+      "title": "Kết nối LinkedIn",
+      "description": "Kết nối hồ sơ LinkedIn để đăng bài từ Workspace.",
+      "connect": "Kết nối LinkedIn",
+      "reconnect": "Kết nối lại LinkedIn",
+      "disconnect": "Ngắt kết nối LinkedIn",
+      "connected": "Đã kết nối tài khoản LinkedIn.",
+      "disconnected": "Đã ngắt kết nối LinkedIn.",
+      "connectFailed": "Kết nối LinkedIn thất bại. Vui lòng thử lại.",
+      "startFailed": "Không thể bắt đầu kết nối LinkedIn.",
+      "disconnectFailed": "Không thể ngắt kết nối LinkedIn.",
+      "authUrlMissing": "Thiếu URL ủy quyền LinkedIn."
+    },
+    "facebook": {
+      "title": "Kết nối Facebook",
+      "description": "Kết nối Facebook để đăng lên các trang quản lý từ Workspace.",
+      "connect": "Kết nối Facebook",
+      "reconnect": "Kết nối lại Facebook",
+      "disconnect": "Ngắt kết nối Facebook",
+      "connected": "Đã kết nối tài khoản Facebook.",
+      "disconnected": "Đã ngắt kết nối Facebook.",
+      "connectFailed": "Kết nối Facebook thất bại. Vui lòng thử lại.",
+      "startFailed": "Không thể bắt đầu kết nối Facebook.",
+      "disconnectFailed": "Không thể ngắt kết nối Facebook.",
+      "authUrlMissing": "Thiếu URL ủy quyền Facebook."
+    },
+    "errors": {
+      "loadFailed": "Không thể tải hồ sơ.",
+      "updateFailed": "Không thể cập nhật hồ sơ.",
+      "invalidImage": "Vui lòng chọn tệp ảnh hợp lệ.",
+      "avatarTooLarge": "Ảnh đại diện phải nhỏ hơn 5MB.",
+      "avatarUploadFailed": "Không thể tải ảnh đại diện.",
+      "usernameRequired": "Tên đăng nhập là bắt buộc.",
+      "invalidContext": "Ngữ cảnh hồ sơ không hợp lệ. Vui lòng tải lại và thử lại."
+    }
+  },
+  "settingsProject": {
+    "title": "Cài đặt dự án",
+    "subtitle": "Cấu hình dự án hiện tại và chọn model hiển thị trong chat workspace.",
+    "loading": "Đang tải cài đặt...",
+    "saving": "Đang lưu...",
+    "saved": "Đã lưu cài đặt dự án thành công.",
+    "saveButton": "Lưu cài đặt",
+    "dialog": {
+      "title": "Cài đặt dự án",
+      "closeAria": "Đóng hộp thoại cài đặt dự án"
+    },
+    "fields": {
+      "projectName": "Tên dự án",
+      "projectLink": "Liên kết dự án"
+    },
+    "modelVisibility": {
+      "title": "Hiển thị model chat",
+      "subtitle": "Model được bật sẽ xuất hiện trong danh sách model của dự án này.",
+      "enabledCount": "Đã bật: {{enabled}} / {{total}}"
+    },
+    "errors": {
+      "noActiveProject": "Chưa chọn dự án đang hoạt động.",
+      "loadFailed": "Không thể tải cài đặt dự án.",
+      "saveFailed": "Không thể lưu cài đặt dự án.",
+      "atLeastOneModel": "Phải bật ít nhất một model.",
+      "projectNameRequired": "Tên dự án là bắt buộc."
+    }
+  },
+  "authExtended": {
+    "brandLogoAlt": "Logo AI Content Planner",
+    "password": {
+      "show": "Hiện mật khẩu",
+      "hide": "Ẩn mật khẩu"
+    },
+    "login": {
+      "identifierRequired": "Email hoặc tên đăng nhập là bắt buộc.",
+      "identifierLabel": "Email hoặc tên đăng nhập",
+      "identifierPlaceholder": "name@company.com hoặc username",
+      "rememberAccount": "Ghi nhớ tài khoản",
+      "signUp": "Đăng ký",
+      "failed": "Đăng nhập thất bại."
+    },
+    "register": {
+      "createTitle": "Tạo tài khoản",
+      "subtitle": "Tham gia để bắt đầu lập kế hoạch nội dung",
+      "usernamePlaceholder": "Tên đăng nhập",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Mật khẩu",
+      "fullNamePlaceholder": "Họ và tên",
+      "phonePlaceholder": "Số điện thoại",
+      "creating": "Đang tạo tài khoản...",
+      "createButton": "Tạo tài khoản",
+      "haveAccount": "Đã có tài khoản?",
+      "passwordMin": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "autoLoginFailed": "Đăng ký thành công nhưng tự đăng nhập thất bại. Vui lòng đăng nhập thủ công.",
+      "failed": "Đăng ký thất bại."
+    },
+    "forgot": {
+      "title": "Khôi phục tài khoản",
+      "subtitle": "Xác thực danh tính và đặt lại mật khẩu",
+      "step1": "Bước 1: Nhập email tài khoản để nhận OTP.",
+      "step2Prefix": "Bước 2: Nhập OTP đã gửi tới",
+      "otpCode": "Mã OTP",
+      "otpPlaceholder": "123456",
+      "otpHelper": "Nhập OTP {{length}} số đã gửi qua email",
+      "otpDigits": "OTP phải có {{length}} số",
+      "otpExact": "OTP phải có đúng {{length}} số.",
+      "emailRequired": "Email là bắt buộc.",
+      "sendButton": "Gửi OTP",
+      "sending": "Đang gửi OTP...",
+      "verifyButton": "Xác thực OTP",
+      "verifying": "Đang xác thực...",
+      "changeEmail": "Đổi email",
+      "resendButton": "Gửi lại OTP",
+      "resendIn": "Gửi lại sau {{seconds}}s",
+      "otpSent": "OTP đã được gửi. Sẽ hết hạn sau khoảng {{minutes}} phút.",
+      "otpResent": "OTP đã được gửi lại. Sẽ hết hạn sau khoảng {{minutes}} phút.",
+      "rememberPassword": "Nhớ mật khẩu rồi?",
+      "sendFailed": "Gửi OTP thất bại.",
+      "verifyFailed": "Xác thực OTP thất bại.",
+      "resendFailed": "Gửi lại OTP thất bại."
+    },
+    "reset": {
+      "title": "Đặt mật khẩu mới",
+      "subtitle": "Bước 3: Chọn mật khẩu mạnh cho {{email}}",
+      "yourAccount": "tài khoản của bạn",
+      "newPassword": "Mật khẩu mới",
+      "newPasswordPlaceholder": "Ít nhất 8 ký tự",
+      "confirmPassword": "Xác nhận mật khẩu",
+      "confirmPasswordPlaceholder": "Nhập lại mật khẩu",
+      "updateButton": "Cập nhật mật khẩu",
+      "updating": "Đang cập nhật...",
+      "success": "Đã cập nhật mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.",
+      "goToSignIn": "Đi tới đăng nhập",
+      "backTo": "Quay lại",
+      "passwordMin": "Mật khẩu mới phải có ít nhất 8 ký tự.",
+      "confirmMismatch": "Xác nhận mật khẩu không khớp.",
+      "failed": "Không thể đặt lại mật khẩu."
+    }
+  }
+}

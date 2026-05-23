@@ -12,10 +12,12 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import { CalendarClock, Check, FolderOpen, LogOut, MoonStar, Plus, Settings2, Sun, User } from 'lucide-react';
+import { CalendarClock, Check, FolderOpen, Languages, LogOut, MoonStar, Plus, Settings2, Sun, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { UserItem } from '@/features/users/api/userApi';
 import type { ProjectItem } from '@/features/workspace/types';
 import { useColorMode } from '@/theme/colorMode';
+import i18n, { normalizeSupportedLanguage } from '@/i18n';
 
 type MiniTaskbarProps = {
   currentUser: UserItem | null;
@@ -44,6 +46,7 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
   activeProjectId = null,
   onSelectProject,
 }) => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { toggleMode } = useColorMode();
@@ -58,6 +61,12 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
     .toUpperCase();
 
   const closeMenu = () => setAnchorEl(null);
+  const currentLanguage = normalizeSupportedLanguage(i18n.resolvedLanguage || i18n.language);
+  const nextLanguage = currentLanguage === 'en' ? 'vi' : 'en';
+
+  const handleToggleLanguage = () => {
+    void i18n.changeLanguage(nextLanguage);
+  };
 
   return (
     <Box
@@ -77,10 +86,10 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
       }}
     >
       <Box sx={{ display: 'flex', flexDirection: mobile ? 'row' : 'column', gap: 0.8 }}>
-        <Tooltip title="Create project" placement={mobile ? 'bottom' : 'right'}>
+        <Tooltip title={t('taskbar.createProject')} placement={mobile ? 'bottom' : 'right'}>
           <IconButton
             size="small"
-            aria-label="Create project"
+            aria-label={t('taskbar.createProject')}
             onClick={onCreateProject}
             sx={{
               width: 36,
@@ -102,10 +111,38 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
             <Plus size={16} />
           </IconButton>
         </Tooltip>
-        <Tooltip title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} placement={mobile ? 'bottom' : 'right'}>
+        <Tooltip
+          title={t('taskbar.switchLanguage', { lang: nextLanguage.toUpperCase() })}
+          placement={mobile ? 'bottom' : 'right'}
+        >
           <IconButton
             size="small"
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={t('taskbar.switchLanguage', { lang: nextLanguage.toUpperCase() })}
+            onClick={handleToggleLanguage}
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1.5,
+              color: isDark ? '#dde5ef' : '#24364d',
+              bgcolor: 'transparent',
+              transition: 'all 0.18s ease',
+              '&:hover': {
+                bgcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,123,220,0.1)',
+                color: isDark ? '#ffffff' : '#0f63b5',
+              },
+              '&:focus-visible': {
+                outline: '2px solid #0f7bdc',
+                outlineOffset: 1,
+              },
+            }}
+          >
+            <Languages size={16} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={isDark ? t('common.lightMode') : t('common.darkMode')} placement={mobile ? 'bottom' : 'right'}>
+          <IconButton
+            size="small"
+            aria-label={isDark ? t('common.lightMode') : t('common.darkMode')}
             onClick={toggleMode}
             sx={{
               width: 36,
@@ -127,10 +164,10 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
             {isDark ? <Sun size={16} /> : <MoonStar size={16} />}
           </IconButton>
         </Tooltip>
-        <Tooltip title="Projects" placement={mobile ? 'bottom' : 'right'}>
+        <Tooltip title={t('taskbar.projects')} placement={mobile ? 'bottom' : 'right'}>
           <IconButton
             size="small"
-            aria-label="Open project menu"
+            aria-label={t('taskbar.projects')}
             onClick={(event) => setProjectAnchorEl(event.currentTarget)}
             sx={{
               width: 36,
@@ -152,10 +189,10 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
             <FolderOpen size={16} />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Auto-Post" placement={mobile ? 'bottom' : 'right'}>
+        <Tooltip title={t('taskbar.autopost')} placement={mobile ? 'bottom' : 'right'}>
           <IconButton
             size="small"
-            aria-label="Auto-Post"
+            aria-label={t('taskbar.autopost')}
             onClick={() => onSwitchMode?.('autopost')}
             sx={{
               width: 36,
@@ -179,10 +216,10 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
         </Tooltip>
       </Box>
 
-      <Tooltip title="Account menu" placement={mobile ? 'bottom' : 'right'}>
+      <Tooltip title={t('taskbar.accountMenu')} placement={mobile ? 'bottom' : 'right'}>
         <IconButton
           size="small"
-          aria-label="Open account menu"
+          aria-label={t('taskbar.accountMenu')}
           onClick={(event) => setAnchorEl(event.currentTarget)}
           sx={{
             width: 36,
@@ -235,12 +272,12 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
       >
         <Box sx={{ px: 1.2, py: 0.8 }}>
           <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
-            Your projects
+            {t('taskbar.yourProjects')}
           </Typography>
         </Box>
         {!projects.length ? (
           <MenuItem disabled sx={{ borderRadius: 1.2 }}>
-            <ListItemText primary="No projects yet" />
+            <ListItemText primary={t('taskbar.noProjectsYet')} />
           </MenuItem>
         ) : null}
         {projects.map((project) => {
@@ -259,7 +296,7 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
               </Avatar>
               <ListItemText
                 primary={project.name}
-                secondary={project.source_url || 'No URL'}
+                secondary={project.source_url || t('taskbar.noUrl')}
                 primaryTypographyProps={{ fontWeight: 700, fontSize: '0.85rem' }}
                 secondaryTypographyProps={{ noWrap: true, fontSize: '0.72rem' }}
               />
@@ -278,7 +315,7 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
           <ListItemIcon>
             <Plus size={16} />
           </ListItemIcon>
-          <ListItemText primary="Add new project" />
+          <ListItemText primary={t('taskbar.addNewProject')} />
         </MenuItem>
       </Menu>
 
@@ -298,7 +335,7 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
           <ListItemIcon>
             <User size={16} />
           </ListItemIcon>
-          <ListItemText primary="Profile" />
+          <ListItemText primary={t('common.profile')} />
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -309,7 +346,7 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
           <ListItemIcon>
             <Settings2 size={16} />
           </ListItemIcon>
-          <ListItemText primary="Settings" />
+          <ListItemText primary={t('common.settings')} />
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -321,7 +358,7 @@ export const MiniTaskbar: React.FC<MiniTaskbarProps> = ({
           <ListItemIcon sx={{ color: '#b91c1c' }}>
             <LogOut size={16} />
           </ListItemIcon>
-          <ListItemText primary="Logout" />
+          <ListItemText primary={t('common.logout')} />
         </MenuItem>
       </Menu>
     </Box>

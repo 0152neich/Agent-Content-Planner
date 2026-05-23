@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Dialog, IconButton, Typography } from '@mui/material';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ProjectSettingsForm } from './ProjectSettingsForm';
 
 type ProjectSettingsDialogProps = {
@@ -11,8 +12,11 @@ type ProjectSettingsDialogProps = {
 export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
   open,
   onClose,
-}) => (
-  <Dialog
+}) => {
+  const { t } = useTranslation();
+
+  return (
+    <Dialog
     open={open}
     onClose={onClose}
     fullWidth
@@ -35,8 +39,8 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
         justifyContent: 'space-between',
       }}
     >
-      <Typography sx={{ fontWeight: 700 }}>Project settings</Typography>
-      <IconButton onClick={onClose} size="small" aria-label="Close project settings dialog">
+      <Typography sx={{ fontWeight: 700 }}>{t('settingsProject.dialog.title')}</Typography>
+      <IconButton onClick={onClose} size="small" aria-label={t('settingsProject.dialog.closeAria')}>
         <X size={18} />
       </IconButton>
     </Box>
@@ -44,4 +48,5 @@ export const ProjectSettingsDialog: React.FC<ProjectSettingsDialogProps> = ({
       <ProjectSettingsForm embedded hideHeader onSaved={onClose} />
     </Box>
   </Dialog>
-);
+  );
+};

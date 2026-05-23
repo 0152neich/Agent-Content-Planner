@@ -14,6 +14,20 @@ const parseEnvelope = async <T>(response: Response): Promise<ApiEnvelope<T>> => 
   try {
     return (await response.json()) as ApiEnvelope<T>;
   } catch {
+    if (response.status === 504) {
+      return {
+        success: false,
+        data: null,
+        error: 'Request timed out while waiting for the server. Please retry.',
+      };
+    }
+    if (!response.ok) {
+      return {
+        success: false,
+        data: null,
+        error: `Request failed with status ${response.status}.`,
+      };
+    }
     return { success: false, data: null, error: 'Invalid response.' };
   }
 };

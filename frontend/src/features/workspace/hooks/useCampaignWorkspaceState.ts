@@ -41,7 +41,7 @@ import {
 } from '../historyUtils';
 import { buildSocialPostText } from '../socialTextUtils';
 
-const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'gpt-5.4';
 const INITIAL_ANALYSIS_PROMPT =
   'phan tich du an tu URL nay, chi cap nhat analysis, chua viet social post.';
 

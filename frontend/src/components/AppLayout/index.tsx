@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { alpha } from '@mui/material/styles';
 import { Box, Drawer, IconButton, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { MoonStar, PanelLeft, Sun } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar';
 import { useSnackbar } from './SnackbarContext';
 import { useColorMode } from '@/theme/colorMode';
@@ -14,6 +15,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { mode, toggleMode } = useColorMode();
+  const { t } = useTranslation();
   const isDark = mode === 'dark';
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
@@ -63,7 +65,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             }}
           >
             <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-              Content Planner
+              {t('common.appName')}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <IconButton
@@ -77,7 +79,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               >
                 {isDark ? <Sun size={16} /> : <MoonStar size={16} />}
               </IconButton>
-              <IconButton onClick={() => setMobileOpen(true)} aria-label="Open navigation">
+              <IconButton onClick={() => setMobileOpen(true)} aria-label={t('layout.openNavigation')}>
                 <PanelLeft size={20} />
               </IconButton>
             </Box>

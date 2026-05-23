@@ -4,6 +4,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { KeyRound } from 'lucide-react';
 import { Link as RouterLink, useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { AuthHeaderIcon } from './AuthHeaderIcon';
 import { forgotPasswordResetApi } from '../api/authApi';
 
@@ -11,6 +12,7 @@ const RESET_SESSION_KEY = 'password_reset_verified_email';
 const RESET_TOKEN_SESSION_KEY = 'password_reset_token';
 
 export const ResetPasswordCard: React.FC = () => {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -70,12 +72,12 @@ export const ResetPasswordCard: React.FC = () => {
     setError('');
 
     if (password.length < 8) {
-      setError('New password must be at least 8 characters.');
+      setError(t('authExtended.reset.passwordMin'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Password confirmation does not match.');
+      setError(t('authExtended.reset.confirmMismatch'));
       return;
     }
 
@@ -86,7 +88,7 @@ export const ResetPasswordCard: React.FC = () => {
       sessionStorage.removeItem(RESET_SESSION_KEY);
       sessionStorage.removeItem(RESET_TOKEN_SESSION_KEY);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password.');
+      setError(err instanceof Error ? err.message : t('authExtended.reset.failed'));
     } finally {
       setLoading(false);
     }
@@ -108,10 +110,10 @@ export const ResetPasswordCard: React.FC = () => {
         <AuthHeaderIcon icon={KeyRound} />
 
         <Typography variant="h3" sx={{ fontSize: { xs: '1.9rem', md: '2.2rem' }, fontWeight: 700, mb: 1, textAlign: 'center' }}>
-          Set New Password
+          {t('authExtended.reset.title')}
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400, mb: 3, textAlign: 'center' }}>
-          Step 3: Choose a strong password for {email || 'your account'}
+          {t('authExtended.reset.subtitle', { email: email || t('authExtended.reset.yourAccount') })}
         </Typography>
 
         <Box sx={{ width: '100%', display: 'flex', gap: 1, mb: 2 }}>
@@ -125,13 +127,13 @@ export const ResetPasswordCard: React.FC = () => {
             <Box component="form" onSubmit={handleResetPassword} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
               <Box>
                 <Typography variant="body1" sx={{ mb: 1 }}>
-                  New Password
+                  {t('authExtended.reset.newPassword')}
                 </Typography>
                 <TextField
                   fullWidth
                   type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="At least 8 characters"
+                  placeholder={t('authExtended.reset.newPasswordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   inputRef={passwordInputRef}
@@ -139,7 +141,7 @@ export const ResetPasswordCard: React.FC = () => {
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          aria-label={showPassword ? t('authExtended.password.hide') : t('authExtended.password.show')}
                           onClick={togglePasswordVisibility}
                           onMouseDown={(event) => event.preventDefault()}
                           edge="end"
@@ -154,13 +156,13 @@ export const ResetPasswordCard: React.FC = () => {
 
               <Box>
                 <Typography variant="body1" sx={{ mb: 1 }}>
-                  Confirm Password
+                  {t('authExtended.reset.confirmPassword')}
                 </Typography>
                 <TextField
                   fullWidth
                   type={showConfirmPassword ? 'text' : 'password'}
                   required
-                  placeholder="Re-enter your password"
+                  placeholder={t('authExtended.reset.confirmPasswordPlaceholder')}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   inputRef={confirmPasswordInputRef}
@@ -168,7 +170,7 @@ export const ResetPasswordCard: React.FC = () => {
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton
-                          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                          aria-label={showConfirmPassword ? t('authExtended.password.hide') : t('authExtended.password.show')}
                           onClick={toggleConfirmPasswordVisibility}
                           onMouseDown={(event) => event.preventDefault()}
                           edge="end"
@@ -184,14 +186,14 @@ export const ResetPasswordCard: React.FC = () => {
               {error && <Alert severity="error">{error}</Alert>}
 
               <Button type="submit" variant="contained" fullWidth sx={{ py: 1.35, fontSize: '1rem', fontWeight: 700 }} disabled={loading}>
-                {loading ? 'Updating...' : 'Update Password'}
+                {loading ? t('authExtended.reset.updating') : t('authExtended.reset.updateButton')}
               </Button>
             </Box>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Alert severity="success">Password updated successfully. Please sign in with your new password.</Alert>
+              <Alert severity="success">{t('authExtended.reset.success')}</Alert>
               <Button component={RouterLink} to="/login" variant="contained" fullWidth sx={{ py: 1.35, fontWeight: 700 }}>
-                Go to Sign In
+                {t('authExtended.reset.goToSignIn')}
               </Button>
             </Box>
           )}
@@ -199,13 +201,13 @@ export const ResetPasswordCard: React.FC = () => {
 
         {!done && (
           <Typography variant="body1" color="text.secondary" sx={{ mt: 3, textAlign: 'center' }}>
-            Back to{' '}
+            {t('authExtended.reset.backTo')}{' '}
             <Link
               component={RouterLink}
               to="/login"
               sx={{ color: 'primary.main', textDecoration: 'none', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
             >
-              Sign In
+              {t('auth.signIn')}
             </Link>
           </Typography>
         )}

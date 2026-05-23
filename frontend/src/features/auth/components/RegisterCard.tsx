@@ -3,11 +3,13 @@ import { Box, Button, IconButton, InputAdornment, Link, Paper, TextField, Typogr
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate, Link as RouterLink } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import brandLogo from '@/assets/app-logos/brand-logo.png';
 import { loginApi, meApi, registerApi } from '../api/authApi';
 import { clearAccessToken, setAccessToken } from '../authStorage';
 
 export const RegisterCard: React.FC = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
@@ -41,7 +43,7 @@ export const RegisterCard: React.FC = () => {
     setError(null);
 
     if (password.trim().length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('authExtended.register.passwordMin'));
       return;
     }
 
@@ -66,11 +68,11 @@ export const RegisterCard: React.FC = () => {
     } catch (err) {
       clearAccessToken();
       if (created) {
-        setError('Register succeeded, but auto-login failed. Please sign in manually.');
+        setError(t('authExtended.register.autoLoginFailed'));
         navigate({ to: '/login' });
         return;
       }
-      setError(err instanceof Error ? err.message : 'Register failed.');
+      setError(err instanceof Error ? err.message : t('authExtended.register.failed'));
     } finally {
       setLoading(false);
     }
@@ -117,7 +119,7 @@ export const RegisterCard: React.FC = () => {
             <Box
               component="img"
               src={brandLogo}
-              alt="AI Content Planner logo"
+              alt={t('authExtended.brandLogoAlt')}
               sx={{ width: 56, height: 56, objectFit: 'contain' }}
             />
           </Box>
@@ -133,7 +135,7 @@ export const RegisterCard: React.FC = () => {
             mb: 1,
           }}
         >
-          Create Account
+          {t('authExtended.register.createTitle')}
         </Typography>
         <Typography
           sx={{
@@ -143,20 +145,20 @@ export const RegisterCard: React.FC = () => {
             mb: 2.2,
           }}
         >
-          Join us to start planning your content
+          {t('authExtended.register.subtitle')}
         </Typography>
 
         <Box component="form" onSubmit={handleRegister} sx={{ display: 'flex', flexDirection: 'column', gap: 1.15 }}>
           <TextField
             fullWidth
-            placeholder="Username"
+            placeholder={t('authExtended.register.usernamePlaceholder')}
             required
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
           />
           <TextField
             fullWidth
-            placeholder="Email"
+            placeholder={t('authExtended.register.emailPlaceholder')}
             type="email"
             required
             value={email}
@@ -164,7 +166,7 @@ export const RegisterCard: React.FC = () => {
           />
           <TextField
             fullWidth
-            placeholder="Password"
+            placeholder={t('authExtended.register.passwordPlaceholder')}
             type={showPassword ? 'text' : 'password'}
             required
             value={password}
@@ -174,7 +176,7 @@ export const RegisterCard: React.FC = () => {
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? t('authExtended.password.hide') : t('authExtended.password.show')}
                     onClick={togglePasswordVisibility}
                     onMouseDown={(event) => event.preventDefault()}
                     edge="end"
@@ -187,13 +189,13 @@ export const RegisterCard: React.FC = () => {
           />
           <TextField
             fullWidth
-            placeholder="Full Name"
+            placeholder={t('authExtended.register.fullNamePlaceholder')}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
           />
           <TextField
             fullWidth
-            placeholder="Phone Number"
+            placeholder={t('authExtended.register.phonePlaceholder')}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
@@ -211,7 +213,7 @@ export const RegisterCard: React.FC = () => {
             }}
             disabled={loading}
           >
-            {loading ? 'Creating account...' : 'Create Account'}
+            {loading ? t('authExtended.register.creating') : t('authExtended.register.createButton')}
           </Button>
 
           {error && (
@@ -222,13 +224,13 @@ export const RegisterCard: React.FC = () => {
         </Box>
 
         <Typography sx={{ mt: 1.6, textAlign: 'center', color: isDark ? '#c6d4e6' : '#374151', fontSize: '1rem' }}>
-          Already have an account?{' '}
+          {t('authExtended.register.haveAccount')}{' '}
           <Link
             component={RouterLink}
             to="/login"
             sx={{ color: isDark ? '#7dd3fc' : '#2f6f90', textDecoration: 'none', fontWeight: 700, '&:hover': { textDecoration: 'underline' } }}
           >
-            Sign In
+            {t('auth.signIn')}
           </Link>
         </Typography>
       </Paper>

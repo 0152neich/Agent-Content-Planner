@@ -1,21 +1,22 @@
 import React from 'react';
 import { Tab, Tabs, useTheme } from '@mui/material';
 import { BarChart3, BriefcaseBusiness, Facebook } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 type ResultTabsShellProps = {
   activeTab: number;
   onChangeTab: (tab: number) => void;
 };
 
-const tabItems = [
-  { id: 0, label: 'Core Analysis', icon: <BarChart3 size={16} /> },
-  { id: 1, label: 'LinkedIn Post', icon: <BriefcaseBusiness size={16} /> },
-  { id: 2, label: 'Facebook Post', icon: <Facebook size={16} /> },
-];
-
 export const ResultTabsShell: React.FC<ResultTabsShellProps> = ({ activeTab, onChangeTab }) => {
   const theme = useTheme();
+  const { t } = useTranslation();
   const isDark = theme.palette.mode === 'dark';
+  const tabItems = [
+    { id: 0, label: t('workspaceResults.tabs.coreAnalysis'), icon: <BarChart3 size={16} /> },
+    { id: 1, label: t('workspaceResults.tabs.linkedinPost'), icon: <BriefcaseBusiness size={16} /> },
+    { id: 2, label: t('workspaceResults.tabs.facebookPost'), icon: <Facebook size={16} /> },
+  ];
 
   return (
     <Tabs

@@ -52,6 +52,17 @@
     "upgrade": "Upgrade",
     "personalize": "Personalize"
   },
+  "taskbar": {
+    "createProject": "Create project",
+    "switchLanguage": "Switch language ({{lang}})",
+    "projects": "Projects",
+    "autopost": "Auto-Post",
+    "accountMenu": "Account menu",
+    "yourProjects": "Your projects",
+    "noProjectsYet": "No projects yet",
+    "noUrl": "No URL",
+    "addNewProject": "Add new project"
+  },
   "workspace": {
     "title": "Input Content Source",
     "subtitle": "Enter the URL of the article or blog you need to analyze to start creating an in-depth content plan.",
@@ -137,6 +148,13 @@
       "actions": "Actions",
       "view": "View"
     },
+    "defaultProject": "Project",
+    "loading": "Loading history...",
+    "empty": "No history available for this project yet.",
+    "errors": {
+      "loadFailed": "Failed to load history.",
+      "openFailed": "Failed to open run detail."
+    },
     "mock": {
       "chat1": "Plastic waste report analysis",
       "chat2": "Launch campaign content plan",
@@ -161,5 +179,253 @@
     "googleLogin": "Login with Google",
     "noAccount": "Don't have an account?",
     "requestAccess": "Request Access"
+  },
+  "layout": {
+    "openNavigation": "Open navigation",
+    "historyTableAria": "history table"
+  },
+  "workspacePage": {
+    "logout": {
+      "title": "Logout",
+      "confirmMessage": "Are you sure you want to logout from this workspace?"
+    },
+    "refinement": {
+      "placeholder": "Ask for a targeted refinement (tone, length, format, language...)",
+      "cancelAria": "Cancel refinement"
+    }
+  },
+  "workspaceResults": {
+    "tabs": {
+      "coreAnalysis": "Core Analysis",
+      "linkedinPost": "LinkedIn Post",
+      "facebookPost": "Facebook Post"
+    }
+  },
+  "autopost": {
+    "title": "Auto-Post",
+    "subtitle": "Generate one post per execution, then publish now or schedule.",
+    "form": {
+      "keyword": "KEYWORD",
+      "keywordPlaceholder": "Enter keyword or topic...",
+      "project": "PROJECT",
+      "projectLabel": "Project",
+      "platform": "PLATFORM",
+      "platformLabel": "Platform",
+      "publishMode": "PUBLISH MODE",
+      "publishNow": "Publish now",
+      "schedule": "Schedule",
+      "date": "Date",
+      "time": "Time",
+      "facebookPage": "Facebook page"
+    },
+    "summary": {
+      "label": "Summary:",
+      "publishNow": "This post will be published immediately after generation.",
+      "invalidDate": "Scheduled -> Invalid date"
+    },
+    "actions": {
+      "execute": "Execute",
+      "submitting": "Submitting...",
+      "createSchedule": "Create Schedule"
+    },
+    "filters": {
+      "title": "Feed Filter",
+      "all": "All",
+      "scheduled": "Scheduled",
+      "unscheduled": "Unscheduled"
+    },
+    "drafts": {
+      "title": "Current Chat Drafts",
+      "count": "{{count}} draft",
+      "count_plural": "{{count}} drafts",
+      "empty": "No current chat drafts for this filter.",
+      "updated": "Updated",
+      "cta": "Click to preview and schedule"
+    },
+    "timeline": {
+      "title": "AutoPost Jobs Timeline",
+      "empty": "No auto-post jobs yet.",
+      "retry": "Retry"
+    },
+    "connect": {
+      "connect": "Connect",
+      "dismiss": "Dismiss",
+      "facebookRequired": "Facebook account is not connected. Please connect to continue.",
+      "linkedinRequired": "LinkedIn account is not connected. Please connect to continue.",
+      "genericRequired": "Your social account is not connected. Please connect to continue."
+    },
+    "menu": {
+      "deleteDraft": "Delete draft",
+      "editContent": "Edit content",
+      "editSchedule": "Edit schedule details"
+    },
+    "dialog": {
+      "title": "Schedule Draft",
+      "publishNow": "This draft will be published immediately."
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Update your account details.",
+    "loading": "Loading profile...",
+    "saving": "Saving...",
+    "updated": "Profile updated successfully.",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "connecting": "Connecting...",
+    "disconnecting": "Disconnecting...",
+    "fields": {
+      "username": "Username",
+      "email": "Email",
+      "emailReadOnly": "Email cannot be changed.",
+      "fullName": "Full name",
+      "phone": "Phone"
+    },
+    "avatar": {
+      "alt": "User avatar",
+      "choose": "Choose avatar",
+      "uploading": "Uploading...",
+      "updated": "Avatar updated successfully.",
+      "hint": "JPG, PNG, WEBP, GIF - max 5MB"
+    },
+    "dialog": {
+      "title": "Edit profile",
+      "closeAria": "Close profile dialog"
+    },
+    "linkedin": {
+      "title": "LinkedIn Connection",
+      "description": "Connect your own LinkedIn profile to publish posts from Workspace.",
+      "connect": "Connect LinkedIn",
+      "reconnect": "Reconnect LinkedIn",
+      "disconnect": "Disconnect LinkedIn",
+      "connected": "LinkedIn account connected.",
+      "disconnected": "LinkedIn disconnected.",
+      "connectFailed": "LinkedIn connection failed. Please try again.",
+      "startFailed": "Failed to start LinkedIn connection.",
+      "disconnectFailed": "Failed to disconnect LinkedIn.",
+      "authUrlMissing": "LinkedIn authorize URL is missing."
+    },
+    "facebook": {
+      "title": "Facebook Connection",
+      "description": "Connect your Facebook account to publish to managed pages from Workspace.",
+      "connect": "Connect Facebook",
+      "reconnect": "Reconnect Facebook",
+      "disconnect": "Disconnect Facebook",
+      "connected": "Facebook account connected.",
+      "disconnected": "Facebook disconnected.",
+      "connectFailed": "Facebook connection failed. Please try again.",
+      "startFailed": "Failed to start Facebook connection.",
+      "disconnectFailed": "Failed to disconnect Facebook.",
+      "authUrlMissing": "Facebook authorize URL is missing."
+    },
+    "errors": {
+      "loadFailed": "Failed to load profile.",
+      "updateFailed": "Failed to update profile.",
+      "invalidImage": "Please choose a valid image file.",
+      "avatarTooLarge": "Avatar file must be smaller than 5MB.",
+      "avatarUploadFailed": "Failed to upload avatar.",
+      "usernameRequired": "Username is required.",
+      "invalidContext": "Invalid profile context. Please reload and try again."
+    }
+  },
+  "settingsProject": {
+    "title": "Project settings",
+    "subtitle": "Configure the active project and choose models shown in workspace chat.",
+    "loading": "Loading settings...",
+    "saving": "Saving...",
+    "saved": "Project settings saved successfully.",
+    "saveButton": "Save settings",
+    "dialog": {
+      "title": "Project settings",
+      "closeAria": "Close project settings dialog"
+    },
+    "fields": {
+      "projectName": "Project name",
+      "projectLink": "Project link"
+    },
+    "modelVisibility": {
+      "title": "Chat model visibility",
+      "subtitle": "Enabled models appear in the model dropdown for this project only.",
+      "enabledCount": "Enabled: {{enabled}} / {{total}}"
+    },
+    "errors": {
+      "noActiveProject": "No active project selected.",
+      "loadFailed": "Failed to load project settings.",
+      "saveFailed": "Failed to save project settings.",
+      "atLeastOneModel": "At least one model must remain enabled.",
+      "projectNameRequired": "Project name is required."
+    }
+  },
+  "authExtended": {
+    "brandLogoAlt": "AI Content Planner logo",
+    "password": {
+      "show": "Show password",
+      "hide": "Hide password"
+    },
+    "login": {
+      "identifierRequired": "Email or username is required.",
+      "identifierLabel": "Email or Username",
+      "identifierPlaceholder": "name@company.com or username",
+      "rememberAccount": "Remember account",
+      "signUp": "Sign Up",
+      "failed": "Login failed."
+    },
+    "register": {
+      "createTitle": "Create Account",
+      "subtitle": "Join us to start planning your content",
+      "usernamePlaceholder": "Username",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Password",
+      "fullNamePlaceholder": "Full Name",
+      "phonePlaceholder": "Phone Number",
+      "creating": "Creating account...",
+      "createButton": "Create Account",
+      "haveAccount": "Already have an account?",
+      "passwordMin": "Password must be at least 8 characters.",
+      "autoLoginFailed": "Register succeeded, but auto-login failed. Please sign in manually.",
+      "failed": "Register failed."
+    },
+    "forgot": {
+      "title": "Recover Your Account",
+      "subtitle": "Verify your identity and reset your password",
+      "step1": "Step 1: Enter your account email to receive OTP.",
+      "step2Prefix": "Step 2: Enter OTP sent to",
+      "otpCode": "OTP Code",
+      "otpPlaceholder": "123456",
+      "otpHelper": "Enter {{length}}-digit OTP sent to your email",
+      "otpDigits": "OTP must have {{length}} digits",
+      "otpExact": "OTP must have exactly {{length}} digits.",
+      "emailRequired": "Email is required.",
+      "sendButton": "Send OTP",
+      "sending": "Sending OTP...",
+      "verifyButton": "Verify OTP",
+      "verifying": "Verifying...",
+      "changeEmail": "Change email",
+      "resendButton": "Resend OTP",
+      "resendIn": "Resend in {{seconds}}s",
+      "otpSent": "OTP has been sent. It will expire in about {{minutes}} minutes.",
+      "otpResent": "OTP has been resent. It will expire in about {{minutes}} minutes.",
+      "rememberPassword": "Remember your password?",
+      "sendFailed": "Failed to send OTP.",
+      "verifyFailed": "OTP verification failed.",
+      "resendFailed": "Failed to resend OTP."
+    },
+    "reset": {
+      "title": "Set New Password",
+      "subtitle": "Step 3: Choose a strong password for {{email}}",
+      "yourAccount": "your account",
+      "newPassword": "New Password",
+      "newPasswordPlaceholder": "At least 8 characters",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter your password",
+      "updateButton": "Update Password",
+      "updating": "Updating...",
+      "success": "Password updated successfully. Please sign in with your new password.",
+      "goToSignIn": "Go to Sign In",
+      "backTo": "Back to",
+      "passwordMin": "New password must be at least 8 characters.",
+      "confirmMismatch": "Password confirmation does not match.",
+      "failed": "Failed to reset password."
+    }
   }
 }

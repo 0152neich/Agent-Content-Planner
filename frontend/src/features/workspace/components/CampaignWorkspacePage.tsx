@@ -9,8 +9,10 @@ import { MiniTaskbar } from './MiniTaskbar';
 import { clearAccessToken } from '@/features/auth/authStorage';
 import { logoutApi } from '@/features/auth/api/authApi';
 import { ProjectSettingsDialog } from '@/features/settings';
+import { useTranslation } from 'react-i18next';
 
 export const CampaignWorkspacePage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
@@ -205,14 +207,14 @@ export const CampaignWorkspacePage: React.FC = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>Logout</DialogTitle>
-        <DialogContent>Are you sure you want to logout from this workspace?</DialogContent>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t('workspacePage.logout.title')}</DialogTitle>
+        <DialogContent>{t('workspacePage.logout.confirmMessage')}</DialogContent>
         <DialogActions sx={{ px: 2, pb: 2 }}>
           <Button variant="outlined" onClick={() => setConfirmLogoutOpen(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button variant="contained" color="error" onClick={handleLogout}>
-            Logout
+            {t('common.logout')}
           </Button>
         </DialogActions>
       </Dialog>
