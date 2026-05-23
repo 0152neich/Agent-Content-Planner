@@ -1,10 +1,13 @@
+# production nginx proxy config (SSL)
+PROD_NGINX_PROXY_CONF ?= prod.reverse-proxy.ssl.conf
+
 # development environment
 dev:
 	docker compose -f docker-compose.dev.yml up --build
 
 # production environment
 prod:
-	docker compose -f docker-compose.prod.yml up --build -d
+	NGINX_PROXY_CONF=$(PROD_NGINX_PROXY_CONF) docker compose -f docker-compose.prod.yml up --build -d
 
 # stop all environments
 down:
