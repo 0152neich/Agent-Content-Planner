@@ -30,7 +30,7 @@ from shared.settings.models import PostgresSettings
 logger = get_logger(__name__)
 
 
-DEFAULT_CONVERSATION_MODEL = "gpt-4o-mini"
+DEFAULT_CONVERSATION_MODEL = "gpt-5.4"
 LEGACY_OPENAI_MODEL_ALIASES = {"gpt-3.5-turbo": DEFAULT_CONVERSATION_MODEL}
 RECENT_CHAT_TURNS_LIMIT = 10
 RECENT_CHAT_MESSAGES_LIMIT = RECENT_CHAT_TURNS_LIMIT * 2

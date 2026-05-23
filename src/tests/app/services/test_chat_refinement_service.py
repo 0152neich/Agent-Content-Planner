@@ -107,6 +107,62 @@ def test_process_bootstraps_snapshot_for_reanalyze_without_existing_snapshot(
     assert "analysis" in result.affected_sections
 
 
+def test_process_forces_reanalyze_for_initial_bootstrap_prompt_when_router_clarifies(
+    fake_draft_analysis: DraftAnalysis,
+) -> None:
+    service = ChatRefinementService()
+    with (
+        patch(
+            "app.services.chat_refinement_service.Settings",
+            return_value=_mock_settings(),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatIntentRouter.route",
+            return_value=ChatIntent(
+                action=ChatAction.CLARIFY,
+                normalized_prompt="phan tich du an tu url nay",
+                confidence=0.92,
+                needs_clarification=True,
+                clarify_question="Bạn muốn mình chỉnh Facebook hay LinkedIn?",
+                routing_metadata={"ambiguity_type": "missing_target"},
+            ),
+        ),
+        patch(
+            "app.services.chat_refinement_service.ChatActionWorkflowService.process",
+            return_value=ChatActionWorkflowOutput(
+                status=True,
+                assistant_text="reanalyzed",
+                patch=SnapshotPatch(analysis=fake_draft_analysis),
+                affected_sections=["analysis"],
+                metadata={"language_used": "vi"},
+                code=200,
+            ),
+        ) as workflow_process,
+    ):
+        result = service.process(
+            ChatRefinementInput(
+                owner_user_id="user-1",
+                conversation_id="conv-1",
+                prompt=(
+                    "phan tich du an tu URL nay, chi cap nhat analysis, "
+                    "chua viet social post."
+                ),
+                source_url="https://example.com",
+                snapshot=None,
+            )
+        )
+
+    assert result.status is True
+    assert result.intent is not None
+    assert result.intent.action == ChatAction.REANALYZE_ONLY
+    assert result.content_plan_snapshot is not None
+    assert (
+        result.intent.routing_metadata.get("bootstrap_forced_action")
+        == ChatAction.REANALYZE_ONLY.value
+    )
+    assert workflow_process.call_args.args[0].action == ChatAction.REANALYZE_ONLY
+
+
 def test_process_applies_rewrite_patch_to_existing_snapshot(
     fake_draft_analysis: DraftAnalysis,
     fake_social_posts_bundle: SocialPostsBundle,

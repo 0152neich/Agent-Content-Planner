@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     openai: OpenAISettings
     anthropic: AnthropicSettings
     gemini: GeminiSettings
+    llm_provider: str = "openai"
 
     # Database (optional; use for SQLDatabase config)
     postgres: PostgresSettings | None = None

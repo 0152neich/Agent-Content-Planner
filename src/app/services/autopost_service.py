@@ -6,7 +6,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from app.workflows.content_pipeline import ContentPlanningInput, ContentPlanningService
+from app.services.chat_contracts import ChatAction
+from app.workflows.chat_action_workflow import (
+    ChatActionWorkflowInput,
+    ChatActionWorkflowService,
+)
+from app.workflows.chat_snapshot import ContentPlanSnapshot, apply_partial_update
+from domain.models.models import SocialPost
 from infra.database.pg import SQLDatabase
 from infra.database.pg.schemas import (
     AutopostJob,
@@ -139,11 +145,11 @@ class AutopostService(BaseModel):
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
         self._db = SQLDatabase(config=PostgresSettings())
-        self._content_planner = ContentPlanningService()
         self._social_publish_service = SocialPublishService()
         self._policy_service = ChatPolicyService()
         self._linkedin_connection_service = LinkedInConnectionService()
         self._facebook_connection_service = FacebookConnectionService()
+        self._chat_action_workflow_service = ChatActionWorkflowService()
 
     @staticmethod
     def _utc_now() -> datetime:
@@ -376,7 +382,7 @@ class AutopostService(BaseModel):
         conversation = Conversation(
             project_id=project_id,
             title="Auto-Post",
-            selected_model="gpt-4o-mini",
+            selected_model="gpt-5.4",
             status="active",
             message_count=0,
             last_message_at=now,
@@ -410,6 +416,170 @@ class AutopostService(BaseModel):
                 platforms=platforms,
             ),
         )
+
+    @staticmethod
+    def _normalize_snapshot_platform(value: Any) -> str | None:
+        raw = str(value or "").strip().lower()
+        if raw in {"linkedin", "facebook"}:
+            return raw
+        if "linkedin" in raw:
+            return "linkedin"
+        if "facebook" in raw:
+            return "facebook"
+        return None
+
+    @classmethod
+    def _coerce_snapshot_payload(
+        cls,
+        payload: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if not isinstance(payload, dict):
+            return None
+        analysis_raw = payload.get("analysis")
+        posts_raw = payload.get("social_posts")
+        if not isinstance(analysis_raw, dict) or not isinstance(posts_raw, list):
+            return None
+
+        normalized_posts: list[dict[str, Any]] = []
+        for raw_post in posts_raw:
+            if not isinstance(raw_post, dict):
+                continue
+            normalized_platform = cls._normalize_snapshot_platform(raw_post.get("platform"))
+            if not normalized_platform:
+                continue
+            hashtags_raw = raw_post.get("hashtags")
+            hashtags: list[str] = []
+            if isinstance(hashtags_raw, list):
+                hashtags = [str(item).strip() for item in hashtags_raw if str(item).strip()]
+            normalized_posts.append(
+                {
+                    "platform": normalized_platform,
+                    "hook": str(raw_post.get("hook") or "").strip(),
+                    "body_content": str(raw_post.get("body_content") or "").strip(),
+                    "call_to_action": str(raw_post.get("call_to_action") or "").strip(),
+                    "hashtags": hashtags,
+                }
+            )
+
+        return {
+            "source_url": str(payload.get("source_url") or "").strip(),
+            "analysis": analysis_raw,
+            "social_posts": normalized_posts,
+            "meta": payload.get("meta") if isinstance(payload.get("meta"), dict) else {},
+        }
+
+    @classmethod
+    def _extract_snapshot_from_response_payload(
+        cls,
+        payload: dict[str, Any] | None,
+    ) -> ContentPlanSnapshot | None:
+        if not isinstance(payload, dict):
+            return None
+
+        candidates: list[dict[str, Any]] = []
+        raw_snapshot = payload.get("content_plan_snapshot")
+        if isinstance(raw_snapshot, dict):
+            candidates.append(raw_snapshot)
+        candidates.append(payload)
+
+        for candidate in candidates:
+            coerced = cls._coerce_snapshot_payload(candidate)
+            if coerced is None:
+                continue
+            try:
+                return ContentPlanSnapshot.from_payload(coerced)
+            except Exception:
+                continue
+        return None
+
+    def _extract_snapshot_from_run(
+        self,
+        run: ConversationRun,
+    ) -> ContentPlanSnapshot | None:
+        payload = run.response_payload if isinstance(run.response_payload, dict) else {}
+        return self._extract_snapshot_from_response_payload(payload)
+
+    @staticmethod
+    def _find_snapshot_post(
+        snapshot: ContentPlanSnapshot,
+        platform: str,
+    ) -> SocialPost | None:
+        normalized = platform.strip().lower()
+        for post in snapshot.social_posts:
+            if post.platform.value.strip().lower() == normalized:
+                return post
+        return None
+
+    def _pick_snapshot_from_runs(
+        self,
+        *,
+        runs: list[ConversationRun],
+        platform: str,
+    ) -> tuple[ContentPlanSnapshot | None, ConversationRun | None]:
+        non_publish_platform_snapshot: ContentPlanSnapshot | None = None
+        non_publish_platform_run: ConversationRun | None = None
+        non_publish_any_snapshot: ContentPlanSnapshot | None = None
+        non_publish_any_run: ConversationRun | None = None
+        publish_platform_snapshot: ContentPlanSnapshot | None = None
+        publish_platform_run: ConversationRun | None = None
+        publish_any_snapshot: ContentPlanSnapshot | None = None
+        publish_any_run: ConversationRun | None = None
+
+        for run in runs:
+            snapshot = self._extract_snapshot_from_run(run)
+            if snapshot is None:
+                continue
+            trigger = str((run.request_payload or {}).get("trigger") or "").strip().lower()
+            is_autopost_publish = trigger == "autopost_publish"
+            has_platform_post = self._find_snapshot_post(snapshot, platform) is not None
+
+            if not is_autopost_publish and has_platform_post:
+                non_publish_platform_snapshot = snapshot
+                non_publish_platform_run = run
+                break
+
+            if not is_autopost_publish and non_publish_any_snapshot is None:
+                non_publish_any_snapshot = snapshot
+                non_publish_any_run = run
+
+            if is_autopost_publish and has_platform_post and publish_platform_snapshot is None:
+                publish_platform_snapshot = snapshot
+                publish_platform_run = run
+
+            if is_autopost_publish and publish_any_snapshot is None:
+                publish_any_snapshot = snapshot
+                publish_any_run = run
+
+        if non_publish_platform_snapshot is not None:
+            return non_publish_platform_snapshot, non_publish_platform_run
+        if non_publish_any_snapshot is not None:
+            return non_publish_any_snapshot, non_publish_any_run
+        if publish_platform_snapshot is not None:
+            return publish_platform_snapshot, publish_platform_run
+        if publish_any_snapshot is not None:
+            return publish_any_snapshot, publish_any_run
+
+        return None, None
+
+    def _resolve_latest_snapshot_for_platform(
+        self,
+        *,
+        session,
+        project_id: str,
+        platform: str,
+    ) -> tuple[ContentPlanSnapshot | None, ConversationRun | None]:
+        runs = (
+            self._db.list_project_runs_by_cursor(
+                session=session,
+                project_id=project_id,
+                status=None,
+                cursor_created_at=None,
+                cursor_id=None,
+                limit=200,
+            )
+            or []
+        )
+        return self._pick_snapshot_from_runs(runs=runs, platform=platform)
 
     def _publish_ready_job(
         self,
@@ -1185,18 +1355,19 @@ class AutopostService(BaseModel):
                         final_text=prepared_content,
                     )
 
-                if not (project.source_url or "").strip():
+                rewrite_prompt = (job.keyword or "").strip()
+                if not rewrite_prompt:
                     self._set_job_status(
                         session=session,
                         job=job,
                         status="FAILED",
-                        error_code="SOURCE_URL_REQUIRED",
-                        error_message="Project source_url is required for auto-post generation.",
+                        error_code="REWRITE_PROMPT_REQUIRED",
+                        error_message="Rewrite prompt must not be blank.",
                     )
                     return AutopostServiceOutput(
                         status=False,
-                        error="Project source_url is required for auto-post generation.",
-                        code=409,
+                        error="Rewrite prompt must not be blank.",
+                        code=400,
                     )
                 updated_job = self._set_job_status(
                     session=session,
@@ -1209,22 +1380,14 @@ class AutopostService(BaseModel):
                 if updated_job is not None:
                     job = updated_job
 
-                content_result = self._content_planner.process(
-                    ContentPlanningInput(
-                        url=project.source_url or "",
-                        additional_context=(
-                            f"Keyword focus: {job.keyword}\n"
-                            f"Generate high-quality content for platform: {job.platform}."
-                        ),
-                        requester_user_id=job.user_id,
-                    )
+                snapshot, source_run = self._resolve_latest_snapshot_for_platform(
+                    session=session,
+                    project_id=job.project_id,
+                    platform=job.platform,
                 )
-                content_data = content_result.data
-                if (
-                    not content_result.status
-                    or content_data is None
-                    or not hasattr(content_data, "social_posts")
-                ):
+                snapshot_source = "history"
+
+                if snapshot is None:
                     run_conversation = self._upsert_single_project_conversation(
                         project_id=job.project_id, session=session
                     )
@@ -1234,14 +1397,17 @@ class AutopostService(BaseModel):
                         conversation_id=run_conversation.id or "",
                         status="failed",
                         request_payload={
-                            "trigger": "autopost",
+                            "trigger": "autopost_rewrite",
                             "job_id": job.id,
                             "platform": job.platform,
                             "keyword": job.keyword,
+                            "scheduled_at": job.scheduled_at.isoformat(),
                         },
                         response_payload={
-                            "error": content_result.error
-                            or "Failed to generate content.",
+                            "error": (
+                                "No analysis snapshot found for this project/platform. "
+                                "Please run project analysis first."
+                            ),
                         },
                         source_url=project.source_url,
                         platforms=[job.platform],
@@ -1250,42 +1416,113 @@ class AutopostService(BaseModel):
                         session=session,
                         job=job,
                         status="FAILED",
-                        error_code="AUTPOST_GENERATION_FAILED",
-                        error_message=content_result.error
-                        or "Failed to generate content.",
+                        error_code="SNAPSHOT_REQUIRED",
+                        error_message=(
+                            "No analysis snapshot found for this project/platform. "
+                            "Please run project analysis first."
+                        ),
                         conversation_run_id=run.id,
                     )
                     return AutopostServiceOutput(
                         status=False,
-                        error=content_result.error or "Failed to generate content.",
-                        code=400,
+                        error=(
+                            "No analysis snapshot found for this project/platform. "
+                            "Please run project analysis first."
+                        ),
+                        code=409,
                     )
 
-                posts = getattr(content_data, "social_posts", [])
-                selected_post = None
-                for post in posts:
-                    post_platform = str(getattr(post, "platform", "")).strip().lower()
-                    if post_platform == job.platform:
-                        selected_post = post
-                        break
+                rewrite_action = (
+                    ChatAction.REWRITE_FACEBOOK_ONLY
+                    if job.platform == "facebook"
+                    else ChatAction.REWRITE_LINKEDIN_ONLY
+                )
+                rewrite_result = self._chat_action_workflow_service.process(
+                    ChatActionWorkflowInput(
+                        action=rewrite_action,
+                        prompt=rewrite_prompt,
+                        selected_model=None,
+                        source_url=(snapshot.source_url or project.source_url or None),
+                        snapshot=snapshot,
+                        owner_user_id=job.user_id,
+                    )
+                )
+                if not rewrite_result.status:
+                    run_conversation = self._upsert_single_project_conversation(
+                        project_id=job.project_id, session=session
+                    )
+                    run = self._create_run(
+                        session=session,
+                        project_id=job.project_id,
+                        conversation_id=run_conversation.id or "",
+                        status="failed",
+                        request_payload={
+                            "trigger": "autopost_rewrite",
+                            "job_id": job.id,
+                            "platform": job.platform,
+                            "keyword": job.keyword,
+                            "scheduled_at": job.scheduled_at.isoformat(),
+                        },
+                        response_payload={
+                            "error": rewrite_result.error
+                            or "Failed to rewrite content from snapshot.",
+                            "source_snapshot_run_id": (
+                                source_run.id if source_run is not None else None
+                            ),
+                            "source_snapshot_type": snapshot_source,
+                        },
+                        source_url=project.source_url,
+                        platforms=[job.platform],
+                    )
+                    self._set_job_status(
+                        session=session,
+                        job=job,
+                        status="FAILED",
+                        error_code="AUTOPOST_REWRITE_FAILED",
+                        error_message=rewrite_result.error
+                        or "Failed to rewrite content from snapshot.",
+                        conversation_run_id=run.id,
+                    )
+                    return AutopostServiceOutput(
+                        status=False,
+                        error=rewrite_result.error
+                        or "Failed to rewrite content from snapshot.",
+                        code=rewrite_result.code,
+                    )
+
+                updated_snapshot = snapshot
+                selected_post = rewrite_result.patch.social_post
+                try:
+                    updated_snapshot, _ = apply_partial_update(
+                        snapshot=snapshot,
+                        patch=rewrite_result.patch,
+                        action=rewrite_action,
+                    )
+                except Exception:
+                    updated_snapshot = snapshot
+                if selected_post is None:
+                    selected_post = self._find_snapshot_post(
+                        updated_snapshot,
+                        job.platform,
+                    )
                 if selected_post is None:
                     self._set_job_status(
                         session=session,
                         job=job,
                         status="FAILED",
                         error_code="PLATFORM_POST_NOT_FOUND",
-                        error_message=f"No generated content for {job.platform}.",
+                        error_message=f"No rewritten content for {job.platform}.",
                     )
                     return AutopostServiceOutput(
                         status=False,
-                        error=f"No generated content for {job.platform}.",
+                        error=f"No rewritten content for {job.platform}.",
                         code=409,
                     )
 
                 post_payload = selected_post.model_dump(mode="json")
                 final_text = self._build_post_text(post_payload)
                 expected_language = LanguagePolicyService().detect_target_language(
-                    job.keyword
+                    rewrite_prompt
                 )
                 quality_score, quality_flags = self._evaluate_quality(
                     content=final_text,
@@ -1301,15 +1538,22 @@ class AutopostService(BaseModel):
                     conversation_id=run_conversation.id or "",
                     status="completed",
                     request_payload={
-                        "trigger": "autopost",
+                        "trigger": "autopost_rewrite",
                         "job_id": job.id,
                         "platform": job.platform,
                         "keyword": job.keyword,
                         "scheduled_at": job.scheduled_at.isoformat(),
                     },
                     response_payload={
-                        "content_plan_snapshot": content_data.model_dump(mode="json"),
+                        "content_plan_snapshot": updated_snapshot.model_dump(
+                            mode="json"
+                        ),
                         "selected_post": post_payload,
+                        "assistant_text": rewrite_result.assistant_text,
+                        "source_snapshot_run_id": (
+                            source_run.id if source_run is not None else None
+                        ),
+                        "source_snapshot_type": snapshot_source,
                     },
                     source_url=project.source_url,
                     platforms=[job.platform],

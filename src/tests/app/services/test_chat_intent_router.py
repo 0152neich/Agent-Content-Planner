@@ -264,17 +264,17 @@ def test_route_overrides_platform_by_explicit_prompt_platform() -> None:
 def test_stage_models_use_explicit_crew_config_when_valid() -> None:
     settings_stub = SimpleNamespace(
         openai=SimpleNamespace(
-            allowed_models_list=["gpt-4o-mini", "gpt-5.4", "gpt-4.1"],
-            model="gpt-4o-mini",
+            allowed_models_list=["gpt-5.4", "gpt-4.1"],
+            model="gpt-5.4",
         ),
         crew=SimpleNamespace(
-            router_stage1_model="gpt-4o-mini",
-            router_stage2_model="gpt-5.4",
+            router_stage1_model="gpt-5.4",
+            router_stage2_model="gpt-4.1",
         ),
     )
     with patch("app.services.chat_intent_router.Settings", return_value=settings_stub):
-        assert ChatIntentRouter._stage1_model() == "gpt-4o-mini"
-        assert ChatIntentRouter._stage2_model() == "gpt-5.4"
+        assert ChatIntentRouter._stage1_model() == "gpt-5.4"
+        assert ChatIntentRouter._stage2_model() == "gpt-4.1"
 
 
 def test_stage_models_fallback_when_explicit_model_invalid() -> None:

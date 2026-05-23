@@ -55,14 +55,14 @@ class CrewSettings(BaseModel):
         description="Short-lived cache TTL for identical successful content-plan requests.",
     )
     router_stage1_model: str | None = Field(
-        default="gpt-4o-mini",
+        default="gpt-5.4",
         description=(
             "Optional explicit model for chat-router stage1 classifier (mini model). "
             "If unset or invalid, router falls back to default candidate selection."
         ),
     )
     router_stage2_model: str | None = Field(
-        default="gpt-4o-mini",
+        default="gpt-5.4",
         description=(
             "Optional explicit model for chat-router stage2 action resolver. "
             "If unset or invalid, router falls back to default candidate selection."

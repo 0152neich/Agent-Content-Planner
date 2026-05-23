@@ -64,7 +64,7 @@ def _supports_openai_structured_output(model_name: str) -> bool:
 
 
 def _resolve_openai_structured_fallback_model() -> str:
-    preferred_fallback = "gpt-4o-mini"
+    preferred_fallback = "gpt-5.4"
     allowed_models = settings.openai.allowed_models_list
     if preferred_fallback in allowed_models:
         return preferred_fallback
@@ -72,7 +72,7 @@ def _resolve_openai_structured_fallback_model() -> str:
         return settings.openai.model
     raise UnsupportedModelError(
         "No structured-output-compatible OpenAI fallback model is configured. "
-        "Please include 'gpt-4o-mini' (or another compatible model) in OPENAI__ALLOWED_MODELS."
+        "Please include 'gpt-5.4' (or another compatible model) in OPENAI__ALLOWED_MODELS."
     )
 
 

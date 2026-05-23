@@ -120,7 +120,7 @@ def test_history_payload_error_is_sanitized_for_output() -> None:
         conversation_id="conv_1",
         role="assistant",
         content="text",
-        model="gpt-4o-mini",
+        model="gpt-5.4",
         input_tokens=None,
         output_tokens=10,
         latency_ms=50,

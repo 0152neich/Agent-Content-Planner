@@ -4,6 +4,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from hashlib import sha256
 import json
+import re
 from threading import Event, Lock
 from time import monotonic
 from typing import Deque
@@ -69,6 +70,72 @@ class ChatRefinementService(BaseModel):
         if value is None:
             return ""
         return " ".join(value.strip().split())
+
+    @classmethod
+    def _is_initial_analysis_bootstrap_prompt(cls, prompt: str) -> bool:
+        normalized = cls._normalize_text(prompt).lower()
+        if not normalized:
+            return False
+        bootstrap_markers = (
+            "phan tich du an tu url nay",
+            "chi cap nhat analysis",
+            "chua viet social post",
+        )
+        if all(marker in normalized for marker in bootstrap_markers):
+            return True
+        return bool(
+            re.search(r"\banaly[sz]e\b", normalized)
+            and "url" in normalized
+            and "analysis" in normalized
+            and "social post" in normalized
+        )
+
+    @classmethod
+    def _override_bootstrap_intent(
+        cls,
+        *,
+        intent: ChatIntent,
+        snapshot: ContentPlanSnapshot | None,
+        source_url: str | None,
+        prompt: str,
+    ) -> ChatIntent:
+        if snapshot is not None:
+            return intent
+        if not cls._normalize_text(source_url):
+            return intent
+        if intent.action != ChatAction.CLARIFY:
+            return intent
+        ambiguity_type = str(
+            (intent.routing_metadata or {}).get("ambiguity_type") or ""
+        ).strip().lower()
+        if ambiguity_type != "missing_target":
+            return intent
+        if not cls._is_initial_analysis_bootstrap_prompt(prompt):
+            return intent
+
+        routing_metadata = dict(intent.routing_metadata or {})
+        resolver_meta = routing_metadata.get("resolver")
+        if isinstance(resolver_meta, dict):
+            resolver_data = dict(resolver_meta)
+        else:
+            resolver_data = {}
+        resolver_data["bootstrap_override"] = True
+        routing_metadata["resolver"] = resolver_data
+        routing_metadata["bootstrap_forced_action"] = ChatAction.REANALYZE_ONLY.value
+
+        return intent.model_copy(
+            update={
+                "action": ChatAction.REANALYZE_ONLY,
+                "target_platform": None,
+                "needs_clarification": False,
+                "clarify_question": None,
+                "reason": (
+                    intent.reason
+                    or "Bootstrap analysis prompt forced to REANALYZE_ONLY."
+                ),
+                "routing_metadata": routing_metadata,
+            }
+        )
 
     @classmethod
     def _build_request_key(
@@ -583,6 +650,12 @@ class ChatRefinementService(BaseModel):
                 snapshot=inputs.snapshot,
                 intent_context=inputs.intent_context,
                 recent_messages=inputs.recent_messages,
+            )
+            intent = self._override_bootstrap_intent(
+                intent=intent,
+                snapshot=snapshot,
+                source_url=inputs.source_url,
+                prompt=inputs.prompt,
             )
             logger.info(
                 "chat_refinement_routing_resolved",

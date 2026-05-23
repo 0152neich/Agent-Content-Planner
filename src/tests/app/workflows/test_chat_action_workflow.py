@@ -34,7 +34,7 @@ def test_compose_action_assistant_reply_returns_llm_output_with_guardrails() -> 
             action=ChatAction.FULL_REGENERATE,
             prompt="Làm mới toàn bộ theo hướng chuyên gia",
             target_language="vi",
-            selected_model="gpt-4o-mini",
+            selected_model="gpt-5.4",
             affected_sections=["analysis", "social_posts"],
             context_summary="Regenerated full snapshot with 2 social posts.",
         )

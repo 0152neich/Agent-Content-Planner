@@ -10,7 +10,7 @@ from app.services.chat_policy_service import (
     PolicyDecision,
     PolicySeverity,
 )
-from infra.database.pg.schemas import AutopostJob
+from infra.database.pg.schemas import AutopostJob, ConversationRun
 
 
 def _service_without_runtime_init() -> AutopostService:
@@ -126,3 +126,115 @@ def test_publish_ready_job_moves_to_needs_review_when_policy_blocks() -> None:
     assert result.status is True
     assert getattr(result.data, "status", "") == "NEEDS_REVIEW"
     assert set_status.call_count == 1
+
+
+def _build_snapshot_payload(*, platform: str) -> dict:
+    return {
+        "source_url": "https://example.com",
+        "analysis": {},
+        "social_posts": [
+            {
+                "platform": platform,
+                "hook": "Hook",
+                "body_content": "Body content with enough context and contact now for support.",
+                "call_to_action": "Contact us today",
+                "hashtags": ["tag1", "tag2", "tag3"],
+            }
+        ],
+    }
+
+
+def test_extract_snapshot_from_response_payload_reads_content_plan_snapshot() -> None:
+    service = _service_without_runtime_init()
+    payload = {"content_plan_snapshot": _build_snapshot_payload(platform="linkedin")}
+    snapshot = service._extract_snapshot_from_response_payload(payload)
+    assert snapshot is not None
+    assert snapshot.source_url == "https://example.com"
+    assert snapshot.social_posts[0].platform.value == "linkedin"
+
+
+def test_extract_snapshot_from_response_payload_normalizes_platform_alias() -> None:
+    service = _service_without_runtime_init()
+    payload = {
+        "content_plan_snapshot": _build_snapshot_payload(platform="FACEBOOK Post")
+    }
+    snapshot = service._extract_snapshot_from_response_payload(payload)
+    assert snapshot is not None
+    assert snapshot.social_posts[0].platform.value == "facebook"
+
+
+def test_extract_snapshot_from_response_payload_accepts_analysis_without_social_posts() -> None:
+    service = _service_without_runtime_init()
+    payload = {
+        "content_plan_snapshot": {
+            "source_url": "https://example.com",
+            "analysis": {},
+            "social_posts": [],
+        }
+    }
+    snapshot = service._extract_snapshot_from_response_payload(payload)
+    assert snapshot is not None
+    assert snapshot.source_url == "https://example.com"
+    assert snapshot.social_posts == []
+
+
+def test_pick_snapshot_from_runs_prefers_non_autopost_publish_trigger() -> None:
+    service = _service_without_runtime_init()
+    now = datetime(2026, 5, 1, 8, 0, tzinfo=timezone.utc)
+    publish_run = ConversationRun(
+        id="run-publish",
+        conversation_id="conv-1",
+        project_id="project-1",
+        request_payload={"trigger": "autopost_publish"},
+        response_payload={
+            "content_plan_snapshot": _build_snapshot_payload(platform="linkedin")
+        },
+        started_at=now,
+        finished_at=now,
+        status="completed",
+    )
+    content_run = ConversationRun(
+        id="run-content",
+        conversation_id="conv-1",
+        project_id="project-1",
+        request_payload={"trigger": "content_plan"},
+        response_payload={
+            "content_plan_snapshot": _build_snapshot_payload(platform="linkedin")
+        },
+        started_at=now,
+        finished_at=now,
+        status="completed",
+    )
+
+    snapshot, run = service._pick_snapshot_from_runs(
+        runs=[publish_run, content_run],
+        platform="linkedin",
+    )
+    assert snapshot is not None
+    assert run is not None
+    assert run.id == "run-content"
+
+
+def test_pick_snapshot_from_runs_falls_back_to_analysis_when_platform_missing() -> None:
+    service = _service_without_runtime_init()
+    now = datetime(2026, 5, 1, 8, 0, tzinfo=timezone.utc)
+    run = ConversationRun(
+        id="run-linkedin-only",
+        conversation_id="conv-1",
+        project_id="project-1",
+        request_payload={"trigger": "content_plan"},
+        response_payload={
+            "content_plan_snapshot": _build_snapshot_payload(platform="linkedin")
+        },
+        started_at=now,
+        finished_at=now,
+        status="completed",
+    )
+
+    snapshot, matched_run = service._pick_snapshot_from_runs(
+        runs=[run],
+        platform="facebook",
+    )
+    assert snapshot is not None
+    assert matched_run is not None
+    assert matched_run.id == "run-linkedin-only"

@@ -269,7 +269,7 @@ class ChatIntentRouter(BaseModel):
         settings = Settings()
         return ChatIntentRouter._resolve_router_model(
             configured_model=settings.crew.router_stage1_model,
-            fallback_candidates=["gpt-4o-mini"],
+            fallback_candidates=["gpt-5.4"],
         )
 
     @staticmethod
@@ -277,7 +277,7 @@ class ChatIntentRouter(BaseModel):
         settings = Settings()
         return ChatIntentRouter._resolve_router_model(
             configured_model=settings.crew.router_stage2_model,
-            fallback_candidates=["gpt-4o-mini"],
+            fallback_candidates=["gpt-5.4"],
         )
 
     def _run_stage1(
